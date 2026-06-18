@@ -1,0 +1,42 @@
+name: Validate promotion source
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - tst
+      - prod
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch promotion chain
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          echo "base=${BASE_REF} head=${HEAD_REF}"
+
+          case "${BASE_REF}" in
+            prod)
+              test "${HEAD_REF}" = "tst"
+              ;;
+            tst)
+              test "${HEAD_REF}" = "dev"
+              ;;
+            dev)
+              if [ "${HEAD_REF}" = "tst" ] || [ "${HEAD_REF}" = "prod" ] || [ "${HEAD_REF}" = "main" ]; then
+                echo "dev only accepts feature/work branches, not ${HEAD_REF}"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Unsupported protected base branch: ${BASE_REF}"
+              exit 1
+              ;;
+          esac

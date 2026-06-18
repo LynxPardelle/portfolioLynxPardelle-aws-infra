@@ -1,0 +1,8 @@
+{
+  "app": "node bin/portfolio-aws-infra.js",
+  "context": {
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "project": "portfolioLynxPardelle",
+    "owner": "LynxPardelle"
+  }
+}

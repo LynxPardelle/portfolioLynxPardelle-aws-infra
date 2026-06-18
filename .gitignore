@@ -1,0 +1,11 @@
+node_modules/
+cdk.out/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+coverage/
+.DS_Store
+Thumbs.db
+.aws-sam/
+.cdk.staging/

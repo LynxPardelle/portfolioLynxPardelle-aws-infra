@@ -1,0 +1,30 @@
+{
+  "name": "portfolio-lynx-pardelle-aws-infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AWS CDK JavaScript infrastructure plan and scaffold for the Lynx Pardelle portfolio backend migration.",
+  "bin": {
+    "portfolio-aws-infra": "bin/portfolio-aws-infra.js"
+  },
+  "scripts": {
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "synth:dev": "cdk synth PortfolioDev",
+    "synth:tst": "cdk synth PortfolioTst",
+    "synth:prod": "cdk synth PortfolioProd",
+    "diff:dev": "cdk diff PortfolioDev",
+    "diff:tst": "cdk diff PortfolioTst",
+    "diff:prod": "cdk diff PortfolioProd",
+    "validate": "npm run synth"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.260.0",
+    "constructs": "10.6.0"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1128.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
