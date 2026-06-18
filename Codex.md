@@ -301,3 +301,23 @@ Required check naming correction:
   - `Validate promotion source`
   - `CDK validate`
 - Branch protection should require these unique Check Run names with GitHub Actions app id `15368`.
+
+## 2026-06-18 04:26 Central Time
+
+API custom domain cutover plan:
+
+- Current Route53 records for `api.lynxpardelle.com` are unmanaged A/AAAA aliases to `dvawu0149qr16.cloudfront.net`.
+- API Gateway custom domain names did not exist for `lynxpardelle.com` before this change.
+- ACM has an issued API certificate at `arn:aws:acm:us-east-1:765932874577:certificate/c28aa27f-c191-4d88-b2cf-2279a4481e30`.
+- The CDK change enables a custom domain only for prod:
+  - API Gateway V2 regional domain `api.lynxpardelle.com`.
+  - Root API mapping to the prod HTTP API.
+  - Route53 A and AAAA alias records in hosted zone `Z05088763QG63CC5SE7PN`.
+- The Route53 records use CDK `deleteExisting: true` intentionally because the current records already exist outside this stack and this deployment is the explicit DNS cutover.
+- Dev and tst do not get `api.dev.lynxpardelle.com` or `api.tst.lynxpardelle.com` custom domains in this change because no matching certificates were verified.
+
+Local validation:
+
+- `npm test` passed 14 tests.
+- `npm run validate` completed `cdk synth` successfully.
+- `npm run diff:prod` showed changes only in `PortfolioProd-Portfolio-prod-Api`: API Gateway domain, API mapping, Route53 A/AAAA records, and the CDK custom resource used to delete existing A/AAAA records before replacement.
