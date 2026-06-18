@@ -270,3 +270,19 @@ Promotion status:
   - `CDK validate / validate`
 - PR #1 is mergeable but blocked by branch protection because `reviewDecision` is `REVIEW_REQUIRED`.
 - Promotion to `dev`, then `tst`, then `prod` cannot continue until PR #1 receives the required approval.
+
+## 2026-06-18 03:56 Central Time
+
+Alec clarified that the repo is single-maintainer and he cannot approve a PR created under his own GitHub identity.
+
+Branch protection adjustment:
+
+- Updated `dev`, `tst`, and `prod` branch protection to set required approving reviews from `1` to `0`.
+- Kept required PR/check-based promotion behavior:
+  - Required checks remain `Validate promotion source / validate` and `CDK validate / validate`.
+  - Strict status checks remain enabled.
+  - Admin enforcement remains enabled.
+  - Required conversation resolution remains enabled.
+  - Force pushes remain disabled.
+  - Branch deletion remains disabled.
+- This resolves the single-maintainer deadlock while preserving the work branch -> `dev` -> `tst` -> `prod` promotion chain.
