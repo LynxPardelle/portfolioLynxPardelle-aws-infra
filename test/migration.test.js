@@ -1,6 +1,9 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 const { ObjectId } = require("bson");
 
@@ -33,7 +36,12 @@ test("expectedCollectionNames lists every portfolio MongoDB collection", () => {
 });
 
 test("inventoryDumpCollections reads database and collection names without document contents", () => {
-  const inventory = inventoryDumpCollections("C:\\Users\\lince\\Downloads\\dump");
+  const dumpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "portfolio-dump-"));
+  fs.mkdirSync(path.join(dumpRoot, "admin"));
+  fs.writeFileSync(path.join(dumpRoot, "admin", "system.users.bson"), "");
+  fs.writeFileSync(path.join(dumpRoot, "admin", "system.version.bson"), "");
+
+  const inventory = inventoryDumpCollections(dumpRoot);
 
   assert.deepEqual(inventory.collections, [
     {
