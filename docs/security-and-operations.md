@@ -2,7 +2,9 @@
 
 ## Immediate Security Actions
 
-The old source repo is public and tracks environment-like files with non-placeholder-looking sensitive values. Before deploying new infrastructure, rotate:
+The old source repo is public and tracks environment-like files with non-placeholder-looking sensitive values. Alec decided on 2026-06-18 Central Time to defer rotation until the migration is otherwise complete so the current system remains usable during the buildout. This is a temporary accepted risk, not the final security posture.
+
+Before final cutover or decommissioning, rotate:
 
 - MongoDB root password from `.env.staging`.
 - MongoDB app password from `.env.staging`.
@@ -11,6 +13,8 @@ The old source repo is public and tracks environment-like files with non-placeho
 - Any MongoDB URI/password represented in `.example.env`.
 
 This repo must never store `.env` files or copied secrets.
+
+During the migration, do not copy those values into this repo, GitHub Actions logs, CDK context, CloudFormation outputs, SSM plain strings, or documentation.
 
 ## Target Security Controls
 
