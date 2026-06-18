@@ -22,6 +22,7 @@ const testEnvironment = {
   branch: "dev",
   apiDomainName: "api.dev.lynxpardelle.com",
   hostedZoneName: "lynxpardelle.com",
+  hostedZoneId: "Z05088763QG63CC5SE7PN",
   assetDomainName: "assets.lynxpardelle.com",
   currentAssetsBucketName: "lynx-portfolio",
   currentAssetsDistributionId: "EPT5BBK0QX89M",
@@ -159,6 +160,43 @@ test("ApiStack creates read-only public Lambda and HTTP API", () => {
     ProtocolType: "HTTP",
   });
   assert.equal(Object.keys(template.findResources("AWS::DynamoDB::Table")).length, 0);
+  assert.equal(Object.keys(template.findResources("AWS::ApiGatewayV2::DomainName")).length, 0);
+});
+
+test("prod ApiStack maps the public API to api.lynxpardelle.com", () => {
+  const app = new cdk.App();
+  const environment = {
+    ...testEnvironment,
+    name: "prod",
+    apiDomainName: "api.lynxpardelle.com",
+    apiCustomDomainEnabled: true,
+    apiCertificateArn: "arn:aws:acm:us-east-1:123456789012:certificate/example",
+    removalPolicy: "retain",
+  };
+  const dataStack = new DataStack(app, "TestProdApiDataStack", {
+    env: { account: environment.account, region: environment.region },
+    environment,
+  });
+  const apiStack = new ApiStack(app, "TestProdApiStack", {
+    env: { account: environment.account, region: environment.region },
+    environment,
+    tables: dataStack.tables,
+  });
+  const template = Template.fromStack(apiStack);
+
+  template.hasResourceProperties("AWS::ApiGatewayV2::DomainName", {
+    DomainName: "api.lynxpardelle.com",
+  });
+  template.resourceCountIs("AWS::ApiGatewayV2::ApiMapping", 1);
+  template.resourceCountIs("AWS::Route53::RecordSet", 2);
+  template.hasResourceProperties("AWS::Route53::RecordSet", {
+    Name: "api.lynxpardelle.com.",
+    Type: "A",
+  });
+  template.hasResourceProperties("AWS::Route53::RecordSet", {
+    Name: "api.lynxpardelle.com.",
+    Type: "AAAA",
+  });
 });
 
 test("ObservabilityStack creates bounded logs, alerts topic, and dashboard without alarms", () => {
