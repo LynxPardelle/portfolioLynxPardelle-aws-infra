@@ -119,8 +119,8 @@ Protection intent:
 - Require at least one approving review.
 - Dismiss stale reviews.
 - Require status checks:
-  - `Validate promotion source / validate`
-  - `CDK validate / validate`
+  - `Validate promotion source`
+  - `CDK validate`
 - Require branches to be up to date before merge.
 - Restrict direct pushes.
 - Enforce admins.

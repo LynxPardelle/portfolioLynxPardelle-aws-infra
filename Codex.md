@@ -293,3 +293,11 @@ Follow-up correction:
 - That conflicts with the repository's own `deploy-tst` and `deploy-prod` guards, which intentionally require merge commits from `dev` and `tst` to prove the promotion path.
 - Disabled `required_linear_history` on `dev`, `tst`, and `prod`.
 - Enabled repository auto-merge so protected PRs can be merged by GitHub after required checks pass when needed.
+
+Required check naming correction:
+
+- GitHub Actions reported both workflow jobs with the same Check Run name: `validate`.
+- Updated workflow job display names to unique Check Run names:
+  - `Validate promotion source`
+  - `CDK validate`
+- Branch protection should require these unique Check Run names with GitHub Actions app id `15368`.
