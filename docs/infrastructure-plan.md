@@ -2,7 +2,9 @@
 
 ## Goal
 
-Move the unstable current backend from EC2/Dokploy/Docker/MongoDB into AWS-managed microservices using JavaScript AWS CDK. The target should support three protected environments: `dev`, `tst`, and `prod`.
+Rebuild the current `portfolioLynxPardelle` backend as AWS-managed serverless microservices using JavaScript AWS CDK. The public target domain is still `https://api.lynxpardelle.com`, but the current endpoint is not treated as a working rollback target or source of truth. The migration source of truth is the existing backend code, MongoDB data, and S3 media assets.
+
+The target should support three protected environments: `dev`, `tst`, and `prod`.
 
 ## Target Architecture
 
@@ -159,28 +161,32 @@ The current account evidence only confirms one AWS account: `765932874577`. The 
 ### Phase 0: Guardrails
 
 - Keep the new repo protected.
-- Rotate exposed/possibly exposed credentials from tracked env files.
+- Defer exposed/possibly exposed credential rotation until the migration is otherwise complete and the final cutover/cleanup window starts. This is an accepted temporary risk, not a best-practice target state.
+- Back up the current MongoDB database before any migration test or destructive source-side operation.
 - Add IAM OIDC deployment role for GitHub Actions with least privilege.
 - Confirm DNS ownership and desired prod/test/dev API domains.
+- Reuse the current `lynx-portfolio` S3 bucket for portfolio media. Do not create a replacement media bucket unless Alec explicitly changes this decision.
 
 ### Phase 1: Foundation
 
 - Implement CDK stacks for environment config, tags, SSM parameters, Secrets Manager placeholders, log groups, SNS topics, and budgets.
 - Import or reference existing hosted zone `lynxpardelle.com`.
-- Decide whether to import `lynx-portfolio` assets bucket into CDK or create environment-specific buckets.
+- Reference the existing `lynx-portfolio` assets bucket and current CloudFront assets distribution. Do not replace or delete the existing assets path during foundation work.
+- Add GitHub Actions deployment workflows using the same OIDC/environment-variable pattern already used in Moyra and Zoolanding AWS repos, adapted to this repo's `dev` -> `tst` -> `prod` promotion model.
 
 ### Phase 2: Data and Media
 
 - Build DynamoDB tables.
-- Build S3 media bucket policy with CloudFront OAC.
+- Build S3 media integration against the existing `lynx-portfolio` bucket and CloudFront OAC path.
 - Build migration export from MongoDB to S3 JSON.
 - Build import Lambdas or one-time scripts into DynamoDB.
 
-### Phase 3: API Slice 1
+### Phase 3: API Reverse Engineering and Public API
 
-- Implement Public Content API first.
-- Keep old backend live.
-- Compare responses from old and new APIs with contract tests.
+- Reverse-engineer the Express routes, controllers, models, auth middleware, S3 helpers, and current MongoDB data shape.
+- Define contract tests from the old code behavior and representative backed-up data, not from the currently non-working `https://api.lynxpardelle.com` endpoint.
+- Implement Public Content API first behind API Gateway and Lambda.
+- Verify route compatibility against the reverse-engineered contract.
 
 ### Phase 4: Admin and Auth
 
@@ -193,11 +199,11 @@ The current account evidence only confirms one AWS account: `765932874577`. The 
 
 - Put new API behind `api.tst.lynxpardelle.com`.
 - Run parity tests.
-- Cut `api.lynxpardelle.com` to new API only after validated `tst`.
-- Keep EC2 rollback path until prod is stable.
+- Point `api.lynxpardelle.com` to the new serverless API after validated `tst`.
+- Do not maintain an active rollback path to the current monolithic backend. The current public API endpoint is not working.
 
 ### Phase 6: Decommission
 
 - Remove Dokploy app backend after backup and verification.
 - Lock or remove MongoDB public/DNS exposure.
-- Remove stale CloudFront/DNS entries after confirming no traffic.
+- Remove stale CloudFront/DNS entries after confirming the new serverless API is serving production traffic.
