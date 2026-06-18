@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   validate:
+    name: Validate promotion source
     runs-on: ubuntu-latest
     steps:
       - name: Validate branch promotion chain
