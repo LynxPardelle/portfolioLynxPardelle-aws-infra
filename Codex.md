@@ -286,3 +286,10 @@ Branch protection adjustment:
   - Force pushes remain disabled.
   - Branch deletion remains disabled.
 - This resolves the single-maintainer deadlock while preserving the work branch -> `dev` -> `tst` -> `prod` promotion chain.
+
+Follow-up correction:
+
+- Found `required_linear_history` was enabled on `dev`, `tst`, and `prod`.
+- That conflicts with the repository's own `deploy-tst` and `deploy-prod` guards, which intentionally require merge commits from `dev` and `tst` to prove the promotion path.
+- Disabled `required_linear_history` on `dev`, `tst`, and `prod`.
+- Enabled repository auto-merge so protected PRs can be merged by GitHub after required checks pass when needed.
