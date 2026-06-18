@@ -13,7 +13,7 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -34,9 +34,9 @@ jobs:
     needs: guard
     environment: tst
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6.4.0
         with:
           node-version: 22
           cache: npm

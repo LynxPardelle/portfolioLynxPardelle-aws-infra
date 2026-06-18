@@ -351,3 +351,17 @@ Operational notes:
 
 - CDK emitted the expected deprecation warning for `route53.RecordSetOptions#deleteExisting`; it was used intentionally for this one-time cutover from unmanaged DNS records to CDK-owned API Gateway aliases.
 - Temporary Dokploy credentials remain intentionally available per Alec's instruction; rotate/revoke them after the migration work is fully complete.
+
+## 2026-06-18 13:50 Central Time
+
+GitHub Actions Node runtime cleanup:
+
+- GitHub API reported the latest `actions/checkout` release as `v7.0.0`.
+- GitHub API reported the latest `actions/setup-node` release as `v6.4.0`.
+- Updated workflows from `actions/checkout@v4` to `actions/checkout@v7.0.0`.
+- Updated workflows from `actions/setup-node@v4` to `actions/setup-node@v6.4.0`.
+- Kept project runtime `node-version: 22` unchanged.
+- Local validation passed:
+  - `npm test` passed 14 tests.
+  - `npm run validate` completed `cdk synth` successfully.
+- No remaining references to `actions/checkout@v4` or `actions/setup-node@v4` were found under `.github/workflows`.
