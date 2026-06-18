@@ -321,3 +321,33 @@ Local validation:
 - `npm test` passed 14 tests.
 - `npm run validate` completed `cdk synth` successfully.
 - `npm run diff:prod` showed changes only in `PortfolioProd-Portfolio-prod-Api`: API Gateway domain, API mapping, Route53 A/AAAA records, and the CDK custom resource used to delete existing A/AAAA records before replacement.
+
+## 2026-06-18 04:41 Central Time
+
+API custom domain cutover completed:
+
+- PR #4 `work/api-custom-domain-cutover` -> `dev` merged.
+- PR #5 `dev` -> `tst` merged.
+- PR #6 `tst` -> `prod` merged.
+- GitHub Actions reported `success` for the relevant `CDK validate`, `Validate promotion source`, `Deploy Dev`, `Deploy Tst`, and `Deploy Prod` runs.
+- Prod CloudFormation output for `PortfolioProd-Portfolio-prod-Api`:
+  - `PublicApiEndpoint`: `https://25bxkwpx0k.execute-api.us-east-1.amazonaws.com`
+  - `PublicApiCustomDomainName`: `api.lynxpardelle.com`
+  - `PublicApiRegionalDomainName`: `d-dovq432mpb.execute-api.us-east-1.amazonaws.com`
+- Route53 now has A and AAAA aliases for `api.lynxpardelle.com` pointing to `d-dovq432mpb.execute-api.us-east-1.amazonaws.com`.
+- API Gateway custom domain `api.lynxpardelle.com` reports `DomainNameStatus: AVAILABLE`.
+
+Production verification:
+
+- `GET https://api.lynxpardelle.com/health` returned `status: ok`, `app: lynx-portfolio-back`, `storage.mode: s3-only`, `bucket: lynx-portfolio`, and `cdnDomain: assets.lynxpardelle.com`.
+- `GET https://api.lynxpardelle.com/api/main/albums` returned success with 10 items.
+- `GET https://api.lynxpardelle.com/api/main/main` returned success for id `61fdcd95fe7fd831d4c15f80`.
+- `GET https://api.lynxpardelle.com/api/article/articles` returned HTTP 404 with `{"status":"error","message":"No hay artículos."}` because the recovered dump has no articles.
+- Browser verification against `https://lynxpardelle.com` loaded `/`, `/webs`, `/reel`, `/book`, `/music`, and `/cv` with top-level HTTP 200 and no console warnings or errors.
+- Browser verification captured successful calls to the new API domain, including `/api/main/main`, `/api/main/songs`, `/api/main/web-sites`, `/api/main/videos`, `/api/main/book-imgs`, `/api/main/albums`, and `/api/main/cv-sections`.
+- Observed browser `requestfailed` entries were `net::ERR_ABORTED` for the background WAV asset from `assets.lynxpardelle.com`; no failed `api.lynxpardelle.com` requests were observed in the route verification.
+
+Operational notes:
+
+- CDK emitted the expected deprecation warning for `route53.RecordSetOptions#deleteExisting`; it was used intentionally for this one-time cutover from unmanaged DNS records to CDK-owned API Gateway aliases.
+- Temporary Dokploy credentials remain intentionally available per Alec's instruction; rotate/revoke them after the migration work is fully complete.
