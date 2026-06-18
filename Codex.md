@@ -256,3 +256,17 @@ Promotion note:
 
 - Dev has been deployed locally from the work branch for validation.
 - Repository promotion still needs the protected branch path: work branch PR -> `dev`, then `dev` -> `tst`, then `tst` -> `prod`.
+
+## 2026-06-18 03:49 Central Time
+
+Promotion status:
+
+- Created commit `fc891ee` with the serverless foundation and public API implementation.
+- Created follow-up commit `aa8c95a` to make the migration inventory test portable in GitHub Actions Linux runners.
+- Pushed branch `work/portfolio-serverless-migration` to origin.
+- Opened PR #1: `https://github.com/LynxPardelle/portfolioLynxPardelle-aws-infra/pull/1`.
+- GitHub checks for commit `aa8c95a` passed:
+  - `Validate promotion source / validate`
+  - `CDK validate / validate`
+- PR #1 is mergeable but blocked by branch protection because `reviewDecision` is `REVIEW_REQUIRED`.
+- Promotion to `dev`, then `tst`, then `prod` cannot continue until PR #1 receives the required approval.
