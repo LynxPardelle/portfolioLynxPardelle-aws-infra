@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   validate:
+    name: CDK validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,4 +26,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npm run validate

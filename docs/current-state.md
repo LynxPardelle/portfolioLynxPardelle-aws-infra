@@ -186,6 +186,12 @@ Selected `lynxpardelle.com` records returned:
 
 `aws cloudfront list-distributions` did not return a distribution with aliases `api.lynxpardelle.com` or `mongo.lynxpardelle.com` in this AWS account. That is evidence only; it does not prove whether the alias target exists elsewhere.
 
+Endpoint probe on 2026-06-18 Central Time:
+
+- `Invoke-WebRequest https://api.lynxpardelle.com/health` timed out after 15 seconds.
+- Returned error text: `The request was canceled due to the configured HttpClient.Timeout of 15 seconds elapsing.`
+- Migration planning should not treat `https://api.lynxpardelle.com` as a working parity source or rollback target.
+
 ## Current Compute
 
 `aws ec2 describe-instances` returned one relevant instance:

@@ -8,21 +8,28 @@
   },
   "scripts": {
     "cdk": "cdk",
+    "test": "node --test",
     "synth": "cdk synth",
-    "synth:dev": "cdk synth PortfolioDev",
-    "synth:tst": "cdk synth PortfolioTst",
-    "synth:prod": "cdk synth PortfolioProd",
-    "diff:dev": "cdk diff PortfolioDev",
-    "diff:tst": "cdk diff PortfolioTst",
-    "diff:prod": "cdk diff PortfolioProd",
+    "synth:dev": "cdk synth \"PortfolioDev/*\"",
+    "synth:tst": "cdk synth \"PortfolioTst/*\"",
+    "synth:prod": "cdk synth \"PortfolioProd/*\"",
+    "diff:dev": "cdk diff \"PortfolioDev/*\"",
+    "diff:tst": "cdk diff \"PortfolioTst/*\"",
+    "diff:prod": "cdk diff \"PortfolioProd/*\"",
+    "migration:inspect": "node scripts/migration/inspect-mongo-dump.js",
+    "migration:export": "node scripts/migration/export-dynamodb-batch-items.js",
     "validate": "npm run synth"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.828.0",
+    "@aws-sdk/util-dynamodb": "^3.828.0",
     "aws-cdk-lib": "2.260.0",
+    "bson": "^7.3.0",
     "constructs": "10.6.0"
   },
   "devDependencies": {
-    "aws-cdk": "2.1128.0"
+    "aws-cdk": "2.1128.0",
+    "esbuild": "^0.25.5"
   },
   "engines": {
     "node": ">=20"

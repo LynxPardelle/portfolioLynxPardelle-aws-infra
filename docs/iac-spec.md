@@ -38,9 +38,15 @@ Do not recreate the current EC2/Dokploy network as the target architecture.
 
 Planned resources:
 
-- DynamoDB tables for content, files, audit events, media jobs, and optional sessions.
-- S3 buckets for environment media if not importing `lynx-portfolio`.
-- S3 migration bucket/prefix for MongoDB export files.
+- DynamoDB tables for the current migration scope:
+  - `portfolio-{env}-main`
+  - `portfolio-{env}-articles`
+  - `portfolio-{env}-article-sections`
+  - `portfolio-{env}-article-categories`
+  - `portfolio-{env}-files`
+  - `portfolio-{env}-migration-manifests`
+- References to the existing `lynx-portfolio` S3 bucket for media assets.
+- Migration prefixes under the existing `lynx-portfolio` S3 bucket for MongoDB export files.
 - Secrets Manager secrets for migration-only credentials.
 - SSM parameters for output references.
 
@@ -49,6 +55,8 @@ Initial removal policy:
 - `dev`: destroy
 - `tst`: destroy
 - `prod`: retain
+
+Use DynamoDB on-demand billing during migration. Enable point-in-time recovery in `prod`.
 
 ### ApiStack
 
@@ -59,6 +67,7 @@ Planned resources:
 - JWT authorizer through Cognito where possible.
 - Lambda aliases or versions for rollback.
 - IAM roles per function with least privilege.
+- Compatibility routes derived from the current Express app, especially `/`, `/health`, `/api/main/*`, `/api/article/*`, and any operations routes intentionally kept.
 
 Do not give every function broad S3/DynamoDB permissions. Grant per table and per bucket/prefix.
 
@@ -68,8 +77,7 @@ Planned resources:
 
 - Route53 records for API domains.
 - ACM certificates in `us-east-1`.
-- CloudFront for media assets.
-- CloudFront OAC for private S3 media delivery.
+- References to the existing CloudFront media distribution and OAC path for private S3 media delivery.
 
 Current asset distribution `EPT5BBK0QX89M` should be imported or left managed outside CDK until a safe replacement path is ready. Do not delete or replace it blindly.
 
@@ -111,8 +119,8 @@ Protection intent:
 - Require at least one approving review.
 - Dismiss stale reviews.
 - Require status checks:
-  - `Validate promotion source / validate`
-  - `CDK validate / validate`
+  - `Validate promotion source`
+  - `CDK validate`
 - Require branches to be up to date before merge.
 - Restrict direct pushes.
 - Enforce admins.

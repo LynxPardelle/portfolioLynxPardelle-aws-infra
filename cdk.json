@@ -2,6 +2,7 @@
   "app": "node bin/portfolio-aws-infra.js",
   "context": {
     "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/core:defaultCrossStackReferences": "strong",
     "project": "portfolioLynxPardelle",
     "owner": "LynxPardelle"
   }

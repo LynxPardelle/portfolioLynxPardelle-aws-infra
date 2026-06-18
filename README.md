@@ -20,11 +20,13 @@ npm run synth
 npm run synth:dev
 npm run synth:tst
 npm run synth:prod
+npm run migration:inspect -- --dump C:\Users\lince\Downloads\dump
+npm run migration:export -- --dump C:\Users\lince\Downloads\dump --env dev --out C:\Users\lince\Documents\Codex\Output\portfolioLynxPardelle-dynamodb-import\{batch}
 ```
 
 ## Current Scope
 
-This repo intentionally starts as a CDK scaffold plus reviewed specs. It does not deploy application resources yet. The first implementation pass should convert the documented specs into CDK constructs in small, reviewable increments.
+This repo contains the first CDK foundation for the migration: environment stages, GitHub OIDC deployment workflows, base SSM parameters, placeholder migration secrets, minimal observability, and DynamoDB tables for the initial content migration scope. API Gateway/Lambda microservices are still planned next.
 
 ## Documentation
 
@@ -33,3 +35,8 @@ This repo intentionally starts as a CDK scaffold plus reviewed specs. It does no
 - `docs/iac-spec.md`: CDK stack boundaries and environment specs.
 - `docs/migration-plan.md`: migration sequence from current backend to AWS.
 - `docs/security-and-operations.md`: security issues found and operational controls.
+- `docs/phase-0-1-foundation-plan.md`: first implementation plan for guardrails, CI/CD, and foundation CDK.
+- `docs/api-reverse-engineering-migration-plan.md`: plan to rebuild the non-working current API as serverless microservices.
+- `docs/api-contract-inventory.md`: source-derived route and data-model inventory.
+- `docs/mongodb-backup-procedure.md`: backup procedure required before migration tests.
+- `docs/oidc-deploy-roles.md`: GitHub OIDC deploy-role setup notes.
