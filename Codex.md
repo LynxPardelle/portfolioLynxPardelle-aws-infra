@@ -611,3 +611,18 @@ Dokploy decommission pass for migrated Lynx Portfolio production:
 Detailed report:
 
 - `docs/dokploy-decommission-report.md`
+
+## 2026-06-19 00:23 Central Time
+
+EC2 retirement inventory after Lynx Portfolio Dokploy cleanup:
+
+- Created `docs/ec2-retirement-inventory.md` for the remaining blockers to terminating `LynxServer`.
+- EC2 `i-061f471ff5edea8a9` is still `running` as `t3.medium` with public IP `32.195.120.158`, security group `LynxSG`, and unencrypted `120` GB `gp3` volume `vol-0bd5f763909f1383b`.
+- Route53 in this AWS account still has 22 A records pointing to `32.195.120.158`, mostly ZoolandingPage aliases plus `dokploy.lynxpardelle.com`, `music.lynxpardelle.com`, `alecfest-voliii.lynxpardelle.com`, and `origin.pantrylist.lynxpardelle.com`.
+- Public DNS also showed `moyra.org`, `www.moyra.org`, and `test.moyra.org` resolving to `32.195.120.158`; those zones were not present in this AWS account's Route53 hosted zones.
+- Remaining active Dokploy resources are:
+  - PantryList compose `compose-compress-back-end-port-hiewlq`
+  - Moyra frontends `moyra-test-frontend-zjuuts` and `moyra-production-frontend-qoiyw0`
+  - ZoolandingPage apps `zoolandingpage-test-m6uwhf` and `zoolandingpage-git-repo-app-sacivw`
+- Container lookup showed PantryList, Moyra, and ZoolandingPage still have running healthy containers, so the EC2 must not be stopped yet.
+- Recommended migration order: Moyra frontend SSR first, PantryList second, ZoolandingPage third, then final Dokploy/EC2/security closure.
