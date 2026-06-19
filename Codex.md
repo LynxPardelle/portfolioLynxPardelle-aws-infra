@@ -590,3 +590,24 @@ Production frontend DNS IaC cleanup:
   - `npm run validate` passed.
   - `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65 npm run synth:prod` passed.
   - `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65 npm run diff:prod` showed the intended frontend additions: one `Custom::PortfolioFrontendAliasRecords`, its limited IAM policy for `route53:ChangeResourceRecordSets` on hosted zone `Z05088763QG63CC5SE7PN`, and the singleton custom-resource Lambda/role. No prod frontend `AWS::Route53::RecordSet` resources were introduced.
+
+## 2026-06-19 00:13 Central Time
+
+Dokploy decommission pass for migrated Lynx Portfolio production:
+
+- Alec confirmed production works and requested removing unneeded Dokploy resources while deferring security/credential cleanup until final closure.
+- Route53 showed `lynxpardelle.com`, `www.lynxpardelle.com`, `api.lynxpardelle.com`, and `assets.lynxpardelle.com` already pointed to AWS targets.
+- Dokploy project `lynxpardelle` production resources were stopped and deleted:
+  - Application `Frontend` / `lynxpardelle-frontend-3iktug`
+  - Compose `API` / `lynxpardelle-api-6qfe2b`
+  - Compose `DB` / `lynxpardelle-db-djvthu`
+- `compose.delete` used `deleteVolumes: false` because the local `C:\Users\lince\Downloads\dump` check found only 5 files totaling 2295 bytes; retained data volumes should be handled during final EC2 retirement after explicit backup confirmation.
+- Post-delete Dokploy verification showed project `lynxpardelle` environment `production` with `applications: []` and `composes: []`.
+- Post-delete container lookup returned `count: 0` for all three removed app names.
+- Post-delete production checks returned `200` for `https://lynxpardelle.com/`, `https://www.lynxpardelle.com/`, and `https://api.lynxpardelle.com/health`.
+- EC2 `LynxServer` was intentionally not stopped or terminated because Route53 still has `dokploy.lynxpardelle.com`, `alecfest-voliii.lynxpardelle.com`, `music.lynxpardelle.com`, and `origin.pantrylist.lynxpardelle.com` pointing to `32.195.120.158`.
+- Dokploy API responses can include sensitive integration values. Do not persist raw responses; rotate/revoke temporary Dokploy and unused GitHub app credentials during final security closure.
+
+Detailed report:
+
+- `docs/dokploy-decommission-report.md`
