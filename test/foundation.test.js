@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const cdk = require("aws-cdk-lib");
-const { Template } = require("aws-cdk-lib/assertions");
+const { Match, Template } = require("aws-cdk-lib/assertions");
 
 const { ApiStack } = require("../lib/stacks/api-stack");
 const { DataStack } = require("../lib/stacks/data-stack");
@@ -318,6 +318,60 @@ test("FrontendStack deploys Lambda SSR and CloudFront when release id is configu
       PriceClass: "PriceClass_100",
     },
   });
+  template.hasResourceProperties("AWS::CloudFront::ResponseHeadersPolicy", {
+    ResponseHeadersPolicyConfig: Match.objectLike({
+      Name: "portfolio-dev-frontend-headers",
+      SecurityHeadersConfig: Match.objectLike({
+        ContentSecurityPolicy: Match.objectLike({
+          ContentSecurityPolicy: Match.stringLikeRegexp("frame-ancestors 'self'"),
+          Override: true,
+        }),
+        ContentTypeOptions: {
+          Override: true,
+        },
+        FrameOptions: {
+          FrameOption: "SAMEORIGIN",
+          Override: true,
+        },
+        ReferrerPolicy: {
+          ReferrerPolicy: "strict-origin-when-cross-origin",
+          Override: true,
+        },
+        StrictTransportSecurity: Match.objectLike({
+          AccessControlMaxAgeSec: 31536000,
+          IncludeSubdomains: true,
+          Override: true,
+        }),
+      }),
+      CustomHeadersConfig: {
+        Items: Match.arrayWith([
+          {
+            Header: "Permissions-Policy",
+            Override: true,
+            Value: Match.stringLikeRegexp("camera=\\(\\)"),
+          },
+        ]),
+      },
+      RemoveHeadersConfig: {
+        Items: Match.arrayWith([
+          {
+            Header: "X-Powered-By",
+          },
+        ]),
+      },
+    }),
+  });
+  const distributions = template.findResources("AWS::CloudFront::Distribution");
+  const distribution = Object.values(distributions)[0];
+  const distributionConfig = distribution.Properties.DistributionConfig;
+  assert.ok(distributionConfig.DefaultCacheBehavior.ResponseHeadersPolicyId);
+  const pathPatterns = distributionConfig.CacheBehaviors.map((behavior) => behavior.PathPattern);
+  for (const expectedPattern of ["robots.txt", "sitemap.xml", "manifest.webmanifest", "site.webmanifest", "*.xml", "*.webmanifest"]) {
+    assert.ok(pathPatterns.includes(expectedPattern), `missing static behavior for ${expectedPattern}`);
+  }
+  for (const behavior of distributionConfig.CacheBehaviors) {
+    assert.ok(behavior.ResponseHeadersPolicyId, `missing response headers policy for ${behavior.PathPattern}`);
+  }
   template.hasResourceProperties("AWS::Route53::RecordSet", {
     Name: "dev.lynxpardelle.com.",
     Type: "A",

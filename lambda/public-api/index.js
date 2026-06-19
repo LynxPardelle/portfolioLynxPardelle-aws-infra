@@ -9,7 +9,7 @@ const {
 } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
 
-const client = new DynamoDBClient({});
+let client = new DynamoDBClient({});
 const entityIndexName = "ByEntity";
 
 const tables = {
@@ -307,9 +307,11 @@ async function getArticles(pathname) {
   const total = sorted.length;
 
   if (total === 0) {
-    return json(404, {
-      status: "error",
-      message: "No hay artículos.",
+    return json(200, {
+      status: "success",
+      total_items: 0,
+      pages: 0,
+      articles: [],
     });
   }
 
@@ -750,6 +752,14 @@ function assertTable(tableName) {
   }
 }
 
+function setDynamoClientForTest(testClient) {
+  client = testClient;
+}
+
+function resetDynamoClientForTest() {
+  client = new DynamoDBClient({});
+}
+
 function empty(statusCode) {
   return {
     statusCode,
@@ -787,3 +797,8 @@ function corsHeaders() {
     "access-control-allow-headers": "content-type,authorization",
   };
 }
+
+exports.__test = {
+  setDynamoClientForTest,
+  resetDynamoClientForTest,
+};
