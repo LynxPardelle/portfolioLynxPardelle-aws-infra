@@ -192,6 +192,12 @@ Endpoint probe on 2026-06-18 Central Time:
 - Returned error text: `The request was canceled due to the configured HttpClient.Timeout of 15 seconds elapsing.`
 - Migration planning should not treat `https://api.lynxpardelle.com` as a working parity source or rollback target.
 
+## Current Frontend Hosting State
+
+The Angular frontend repository `C:\Users\lince\Documents\GitHub\lynx-portfolio-angular` was not inspected during the frontend hosting foundation task because Alec explicitly restricted this task to `C:\Users\lince\Documents\GitHub\portfolioLynxPardelle-aws-infra`.
+
+Current DNS evidence above shows `lynxpardelle.com.` and `www.lynxpardelle.com.` as A records pointing to `32.195.120.158`. Do not cut these records over to CloudFront until the Angular SSR artifact contract, CloudFront certificate, SSR routes, static assets, and API calls to `https://api.lynxpardelle.com` are verified.
+
 ## Current Compute
 
 `aws ec2 describe-instances` returned one relevant instance:
