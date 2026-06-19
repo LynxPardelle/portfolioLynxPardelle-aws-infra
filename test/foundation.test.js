@@ -386,6 +386,53 @@ test("FrontendStack deploys Lambda SSR and CloudFront when release id is configu
   });
 });
 
+test("prod FrontendStack upserts existing Route53 aliases without native record duplicates", () => {
+  const app = new cdk.App();
+  const environment = {
+    ...testEnvironment,
+    name: "prod",
+    removalPolicy: "retain",
+    frontendHosting: {
+      ...testEnvironment.frontendHosting,
+      releaseId: "test-release",
+      manifestKey: "frontend/angular-ssr/prod/releases/test-release/manifest.json",
+      staticPrefix: "frontend/angular-ssr/prod/releases/test-release/browser",
+      serverBundleKey: "frontend/angular-ssr/prod/releases/test-release/server/ssr-handler.zip",
+      ssrRuntime: "nodejs22.x",
+      ssrMemorySizeMb: 512,
+      ssrTimeoutSeconds: 15,
+      cachePriceClass: "PRICE_CLASS_100",
+      domainName: "lynxpardelle.com",
+      alternateDomainNames: ["www.lynxpardelle.com"],
+      certificateArn: "arn:aws:acm:us-east-1:123456789012:certificate/frontend",
+      route53RecordsEnabled: true,
+      route53RecordManagement: "upsert",
+    },
+  };
+  const stack = new FrontendStack(app, "TestProdFrontendHostingStack", {
+    env: { account: environment.account, region: environment.region },
+    environment,
+  });
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties("AWS::CloudFront::Distribution", {
+    DistributionConfig: {
+      Aliases: ["lynxpardelle.com", "www.lynxpardelle.com"],
+    },
+  });
+  template.resourceCountIs("AWS::Route53::RecordSet", 0);
+  template.resourceCountIs("Custom::PortfolioFrontendAliasRecords", 1);
+
+  const customResources = template.findResources("Custom::PortfolioFrontendAliasRecords");
+  const customResource = Object.values(customResources)[0];
+  const createPayload = JSON.stringify(customResource.Properties.Create);
+  assert.match(createPayload, /changeResourceRecordSets/);
+  assert.match(createPayload, /UPSERT/);
+  assert.match(createPayload, /lynxpardelle\.com\./);
+  assert.match(createPayload, /www\.lynxpardelle\.com\./);
+  assert.match(createPayload, /Fn::GetAtt/);
+});
+
 test("ObservabilityStack creates bounded logs, alerts topic, and dashboard without alarms", () => {
   const app = new cdk.App();
   const stack = new ObservabilityStack(app, "TestObservabilityStack", {

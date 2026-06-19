@@ -465,3 +465,128 @@ TST hardening implementation for SSR/static metadata/security headers:
 - Local validation passed:
   - `npm test` exited 0 with 17 tests passing.
   - `npm run validate` exited 0 with `cdk synth`.
+
+## 2026-06-18 20:46 Central Time
+
+TST hardening promotion and remote validation:
+
+- Frontend release used for TST: `a998f6941b91f1228e731bc737cda1ac4515f116`.
+- PR #17 promoted infra `dev` -> `tst`; `Deploy Tst` run `27801834602` completed successfully.
+- PR #18 promoted infra `tst` -> `prod`; `Deploy Prod` run `27801999288` completed successfully.
+- Production API empty-blog behavior now matches the recovered data truth:
+  - `GET https://api.lynxpardelle.com/api/article/articles/1/5/_id/all/all` returned HTTP `200`.
+  - Body returned exactly: `{"status":"success","total_items":0,"pages":0,"articles":[]}`.
+- TST direct HTTP smoke passed:
+  - `https://tst.lynxpardelle.com/blog` returned HTTP `200`, SSR HTML, contained `No hay artículos.`, and did not contain `Cargando...`.
+  - `https://tst.lynxpardelle.com/webs` returned HTTP `200`, SSR HTML, and did not contain `Cargando...`.
+  - `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` returned non-HTML static content types.
+  - `Strict-Transport-Security`, `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy` were present; `X-Powered-By` was absent.
+- Browser route smoke on `https://tst.lynxpardelle.com` passed for `/`, `/webs`, `/reel`, `/book`, `/music`, `/cv`, and `/blog`.
+  - No route showed `Cargando...` after hydration.
+  - Displayed image checks reported `0` broken displayed images across the tested routes.
+  - `/reel` displayed 3 Dailymotion iframes and no visible error text in the page DOM.
+  - `/blog` displayed `No hay artículos.` after hydration.
+  - The language button background was `rgb(255, 85, 85)`.
+  - The menu offcanvas opened with a black page background and visible navigation; no white full-screen panel reproduced.
+- Lighthouse reports were saved outside the repo at `C:\Users\lince\Documents\Codex\2026-06-18\lynx-tst-lighthouse`.
+  - `/blog`: performance `66`, accessibility `87`, best practices `92`, SEO `100`, LCP `3643 ms`, CLS `0.355`.
+  - `/webs`: performance `55`, accessibility `87`, best practices `92`, SEO `100`, LCP `3919 ms`, CLS `0.937`.
+  - Lighthouse CLI generated JSON/HTML reports but exited with code `1` because Chrome cleanup hit `EPERM` deleting a temporary `lighthouse.*` directory under `%TEMP%`.
+- Remaining Lighthouse work is separate from this hardening promotion:
+  - `/webs` CLS is mainly from media elements lacking explicit dimensions.
+  - Cache TTL findings point at existing `assets.lynxpardelle.com` media assets with TTL `0`; the current migration plan intentionally keeps that existing media CloudFront distribution stable unless separately changed.
+
+## 2026-06-18 21:24 Central Time
+
+Assets cache header operational change:
+
+- Distribution `EPT5BBK0QX89M` serves alias `assets.lynxpardelle.com` from S3 bucket `lynx-portfolio` and previously had no `ResponseHeadersPolicyId` on the default cache behavior.
+- Verified before change that `https://assets.lynxpardelle.com/uploads/main/1758935700330_61e2bd90fe7fd831d4c15992_katzeRecordsComMCMB1FullScreen.jpg` returned HTTP `200` without `Cache-Control`.
+- Created CloudFront custom response headers policy `portfolio-assets-browser-cache` with id `d8d39ade-9f29-4561-b289-973c4700b305`.
+- Attached the policy to distribution `EPT5BBK0QX89M` default cache behavior and waited for deployment.
+- Verified after deployment:
+  - Default cache behavior `ResponseHeadersPolicyId` is `d8d39ade-9f29-4561-b289-973c4700b305`.
+  - Policy custom header item is exactly `Cache-Control: public, max-age=2592000, stale-while-revalidate=86400` with `Override: true`.
+  - The same asset URL now returns `Cache-Control: public, max-age=2592000, stale-while-revalidate=86400`.
+- Security/operations note: this avoided rewriting S3 objects, so existing `x-amz-storage-class: STANDARD_IA`, `x-amz-server-side-encryption: AES256`, and object versioning state were not changed. The policy intentionally does not use `immutable` so same-key asset replacements can recover after TTL.
+
+## 2026-06-18 21:34 Central Time
+
+TST frontend release update for CV/CLS fixes:
+
+- Frontend merge commit `8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65` was published as a TST SSR artifact by `lynx-portfolio-angular` workflow run `27803506029`.
+- Updated GitHub Environment `tst` variable `FRONTEND_RELEASE_ID` to `8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65`.
+- Ran infra `Deploy Tst` workflow run `27803563133` from ref `tst` at SHA `0f394844d7d48ffbd0918e444a6993ef5397caed`; guard and deploy jobs completed successfully.
+- TST remote validation after deploy:
+  - `/`, `/webs`, `/cv`, `/book`, `/music`, `/reel`, and `/blog` returned HTTP `200`.
+  - `/webs` SSR HTML contained `portfolio-website-skeleton` and no `Cargando...`.
+  - `/cv` browser computed styles showed outer panel red/yellow and nested panel black/white.
+  - `/webs` browser check showed `missingDimensionAttrs: 0` after hydration.
+  - `/blog` still correctly showed `No hay artículos.`.
+  - `https://tst.lynxpardelle.com/webs` response headers included `Strict-Transport-Security`, `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+  - `https://tst.lynxpardelle.com/robots.txt` returned `Content-Type: text/plain`.
+  - `https://assets.lynxpardelle.com/uploads/main/1758935700330_61e2bd90fe7fd831d4c15992_katzeRecordsComMCMB1FullScreen.jpg` returned `Cache-Control: public, max-age=2592000, stale-while-revalidate=86400`.
+- TST Lighthouse `/webs` after fixes: performance `67`, accessibility `87`, best practices `96`, SEO `100`, CLS `0.0612`, LCP `12054 ms`, TBT `118 ms`. Report saved outside repo at `C:\Users\lince\Documents\Codex\2026-06-18\lynx-tst-lighthouse-cv-cls-cache\webs-tst-after-fixes.report.json`.
+
+## 2026-06-18 23:26 Central Time
+
+Production frontend cutover to AWS SSR:
+
+- User confirmed TST looked good, so the frontend release `8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65` was promoted to production.
+- Published the production SSR artifact from `lynx-portfolio-angular` workflow run `27806547723`; the run completed successfully.
+- Set GitHub Environment `prod` variable `FRONTEND_RELEASE_ID` to `8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65`.
+- Initial `Deploy Prod` run `27806591883` failed because CloudFront alias `lynxpardelle.com` was still reserved on an old distribution tenant:
+  - Tenant: `dt_33B4aNp61unDbZy3ZRueLcB5QPM`
+  - Parent distribution: `E10Y59XAIPQY6A`
+  - Route53 and public DNS still pointed `lynxpardelle.com` and `www.lynxpardelle.com` to `32.195.120.158`, so the tenant was stale relative to active traffic.
+- Disabled and deleted only the stale tenant `dt_33B4aNp61unDbZy3ZRueLcB5QPM`; `list-conflicting-aliases` then returned `Quantity: 0` for `lynxpardelle.com`.
+- Follow-up `Deploy Prod` run `27806880616` failed because orphan LogGroup `/aws/lambda/portfolio-prod-frontend-ssr` already existed. Verified:
+  - `aws lambda get-function --function-name portfolio-prod-frontend-ssr` returned `ResourceNotFoundException`.
+  - `PortfolioProd-Portfolio-prod-Frontend` did not list that LogGroup as a managed resource.
+  - The LogGroup had `storedBytes: 0`.
+- Deleted orphan LogGroup `/aws/lambda/portfolio-prod-frontend-ssr`.
+- `Deploy Prod` run `27806936790` completed successfully from `prod` SHA `30ad3e8f6607738c958b0a16e7265003fef367cf`.
+- Production CloudFront distribution:
+  - Id: `E1LHE6N1FDU1U1`
+  - Domain: `d1h141iw0hg57g.cloudfront.net`
+  - Aliases: `lynxpardelle.com`, `www.lynxpardelle.com`
+  - Release output: `8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65`
+- Route53 cutover was applied manually because current prod config has `frontendHosting.route53RecordsEnabled: false`:
+  - Change id: `/change/C056671828JEVPY0XZU6T`
+  - Change reached `INSYNC`.
+  - `lynxpardelle.com` A/AAAA and `www.lynxpardelle.com` A/AAAA now alias to `d1h141iw0hg57g.cloudfront.net`.
+  - Existing MX, TXT, NS, and SOA records were not changed.
+- Production validation:
+  - `https://lynxpardelle.com/`, `/webs`, `/cv`, `/book`, `/music`, `/reel`, and `/blog` returned HTTP `200` from CloudFront with non-empty SSR HTML.
+  - `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, and `/site.webmanifest` returned HTTP `200` with static content types.
+  - `https://api.lynxpardelle.com/api/article/articles/1/5/_id/all/all` returned exactly `{"status":"success","total_items":0,"pages":0,"articles":[]}`.
+  - Browser check on production showed no broken in-viewport images for `/webs`, `/book`, `/music`, `/cv`, or `/blog`.
+  - `/blog` displayed `No hay artículos.`.
+  - Language button computed style: `backgroundColor` `rgb(255, 85, 85)`, `color` `rgb(0, 0, 0)`, `opacity` `1`.
+  - `/cv` nested panel titles computed as white text on black background.
+- Follow-up: codify the production frontend Route53 records in CDK, including alternate domain `www.lynxpardelle.com`, so the manual cutover does not remain outside IaC.
+
+## 2026-06-18 23:44 Central Time
+
+Production frontend DNS IaC cleanup:
+
+- Added explicit prod frontend Route53 management to CDK without native `AWS::Route53::RecordSet` resources for the already-existing production records.
+- `prod` now uses `frontendHosting.route53RecordsEnabled: true` with `route53RecordManagement: "upsert"`.
+- The frontend stack now supports two Route53 modes:
+  - Default/native mode for environments already managed by CloudFormation, used by `dev` and `tst`.
+  - `upsert` mode for production cutover records that already exist outside the stack, using `ChangeResourceRecordSets` with `UPSERT` so deployment updates the existing A/AAAA records instead of trying to create duplicates.
+- Production upsert target domains are `lynxpardelle.com` and `www.lynxpardelle.com`, each with A and AAAA alias records to the CloudFront distribution.
+- The synthesized prod frontend template with `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65` contained:
+  - `Route53RecordSetCount: 0`
+  - `FrontendAliasCustomCount: 1`
+  - `CloudFrontDistributionCount: 1`
+- Current live Route53 records were checked before promotion planning:
+  - `lynxpardelle.com` A/AAAA alias to `d1h141iw0hg57g.cloudfront.net.`
+  - `www.lynxpardelle.com` A/AAAA alias to `d1h141iw0hg57g.cloudfront.net.`
+  - Existing MX, TXT, NS, and SOA records remain separate and are not touched by this frontend alias upsert.
+- Validation:
+  - A TDD regression test first failed with native duplicate-prone `AWS::Route53::RecordSet` resources.
+  - `npm test` passed with 18/18 tests after implementation.
+  - `npm run validate` passed.
+  - `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65 npm run synth:prod` passed.
+  - `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65 npm run diff:prod` showed the intended frontend additions: one `Custom::PortfolioFrontendAliasRecords`, its limited IAM policy for `route53:ChangeResourceRecordSets` on hosted zone `Z05088763QG63CC5SE7PN`, and the singleton custom-resource Lambda/role. No prod frontend `AWS::Route53::RecordSet` resources were introduced.
