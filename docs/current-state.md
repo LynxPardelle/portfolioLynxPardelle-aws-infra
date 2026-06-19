@@ -1,5 +1,7 @@
 # Current State Review
 
+Historical snapshot: this document records the pre-migration state gathered before AWS cutover. It is intentionally preserved as source evidence, but it is superseded for current runtime status by `docs/migration-closeout-report.md`, `docs/dokploy-decommission-report.md`, and `docs/ec2-retirement-inventory.md`.
+
 Review date: 2026-06-18 Central Time.
 
 ## Sources

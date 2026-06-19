@@ -1,6 +1,6 @@
 # portfolioLynxPardelle AWS Infrastructure
 
-AWS CDK JavaScript repo for migrating `portfolioLynxPardelle` from the current Dokploy/Docker/MongoDB backend to a full AWS microservices architecture.
+AWS CDK JavaScript repo that migrated `portfolioLynxPardelle` from Dokploy/Docker/MongoDB to AWS serverless infrastructure. The current production portfolio workload is served by AWS; see `docs/migration-closeout-report.md` for final cutover evidence and remaining security/EC2 closure items.
 
 ## Branch and Environment Model
 
@@ -41,3 +41,6 @@ This repo contains the CDK foundation for the migration: environment stages, Git
 - `docs/mongodb-backup-procedure.md`: backup procedure required before migration tests.
 - `docs/oidc-deploy-roles.md`: GitHub OIDC deploy-role setup notes.
 - `docs/frontend-ssr-hosting-plan.md`: frontend SSR hosting boundary, artifact contract, and CloudFront/Lambda deployment plan.
+- `docs/dokploy-decommission-report.md`: evidence for removed Dokploy `lynxpardelle` resources after AWS cutover.
+- `docs/ec2-retirement-inventory.md`: remaining blockers before terminating the shared `LynxServer` EC2 instance.
+- `docs/migration-closeout-report.md`: final migration evidence, remaining security/ops closure items, and reusable Dokploy-to-AWS playbook.

@@ -626,3 +626,27 @@ EC2 retirement inventory after Lynx Portfolio Dokploy cleanup:
   - ZoolandingPage apps `zoolandingpage-test-m6uwhf` and `zoolandingpage-git-repo-app-sacivw`
 - Container lookup showed PantryList, Moyra, and ZoolandingPage still have running healthy containers, so the EC2 must not be stopped yet.
 - Recommended migration order: Moyra frontend SSR first, PantryList second, ZoolandingPage third, then final Dokploy/EC2/security closure.
+
+## 2026-06-19 05:09 Central Time
+
+Final frontend polish release and production closeout:
+
+- Frontend PR `LynxPardelle/lynx-portfolio-angular#8` merged to `main` at `2026-06-19T10:57:01Z` with merge commit `be6edffb6924cdb3f674798b0571b92b516cea8a`.
+- Main Angular validate run `27821610613` completed with `success`.
+- SSR artifact publish runs for release `be6edffb6924cdb3f674798b0571b92b516cea8a` completed with `success`:
+  - `dev`: `27821610622`
+  - `tst`: `27821672042`
+  - `prod`: `27821672059`
+- S3 artifact manifests existed for `dev`, `tst`, and `prod`; each environment had 51 objects and `server/ssr-handler.zip` size `19975234` bytes.
+- GitHub Environment variable `FRONTEND_RELEASE_ID` was set to `be6edffb6924cdb3f674798b0571b92b516cea8a` for `dev`, `tst`, and `prod`.
+- Infra deploy runs completed with `success`:
+  - `dev`: `27821785680`
+  - `tst`: `27821917590`
+  - `prod`: `27822046065`
+- Final route smoke for `https://lynxpardelle.com`, `/book`, `/webs`, `/cv`, `/music`, `/reel`, and `/blog` returned HTTP `200`, had no `api/main/get-file/` string, and referenced `assets.lynxpardelle.com`.
+- Root HTML script audit returned `htmlHasGetFile: false`, `scriptCount: 4`, and `scriptsWithGetFile: []`.
+- API smoke for `/health`, `/api/main/main`, `/api/main/book-imgs`, `/api/main/songs`, `/api/main/videos`, `/api/main/web-sites`, `/api/main/cv-sections`, and `/api/article/articles/1/5/_id/all/all` returned HTTP `200` with no `api/main/get-file/` strings.
+- Browser runtime audit through system Chrome returned `LynxPortfolio`, `0` page errors, and `0` `NotAllowedError` matches for the final release.
+- The final migration closeout report was added at `docs/migration-closeout-report.md`; it includes release evidence, live smoke evidence, Dokploy cleanup state, remaining security/ops closure items, EC2 retirement blockers, and a reusable Dokploy-to-AWS migration playbook.
+- `docs/current-state.md` was marked as a historical pre-migration snapshot to avoid confusing future agents with superseded DNS/API evidence.
+- Security closure remains deferred by owner decision: rotate old app/database/S3 credentials, revoke the temporary Dokploy API key, review any Dokploy/GitHub integration credentials, review retained Docker/Mongo volumes, and retire `LynxServer` only after remaining PantryList/Moyra/ZoolandingPage dependencies are moved or abandoned.
