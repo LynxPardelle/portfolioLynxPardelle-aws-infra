@@ -1,6 +1,7 @@
 name: Deploy Prod
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - prod
@@ -69,4 +70,6 @@ jobs:
         run: aws sts get-caller-identity
 
       - name: Deploy prod stacks
+        env:
+          FRONTEND_PROD_RELEASE_ID: ${{ vars.FRONTEND_RELEASE_ID }}
         run: npx cdk deploy "PortfolioProd/*" --require-approval never

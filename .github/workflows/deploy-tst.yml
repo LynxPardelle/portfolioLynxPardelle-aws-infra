@@ -1,6 +1,7 @@
 name: Deploy Tst
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - tst
@@ -69,4 +70,6 @@ jobs:
         run: aws sts get-caller-identity
 
       - name: Deploy tst stacks
+        env:
+          FRONTEND_TST_RELEASE_ID: ${{ vars.FRONTEND_RELEASE_ID }}
         run: npx cdk deploy "PortfolioTst/*" --require-approval never

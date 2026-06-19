@@ -365,3 +365,46 @@ GitHub Actions Node runtime cleanup:
   - `npm test` passed 14 tests.
   - `npm run validate` completed `cdk synth` successfully.
 - No remaining references to `actions/checkout@v4` or `actions/setup-node@v4` were found under `.github/workflows`.
+
+## 2026-06-18 15:52 Central Time
+
+Frontend AWS hosting foundation decision:
+
+- Work stayed inside `C:\Users\lince\Documents\GitHub\portfolioLynxPardelle-aws-infra`.
+- `C:\Users\lince\Documents\GitHub\lynx-portfolio-angular` was not inspected or modified.
+- Angular source, builds, tests, and release artifacts remain owned by the frontend repo.
+- The infra repo consumes only frontend artifact coordinates and manifest metadata.
+- The frontend must keep calling `https://api.lynxpardelle.com`.
+- Reuse existing S3 bucket `lynx-portfolio` for frontend release artifacts under `frontend/angular-ssr/{env}/releases/{releaseId}/`.
+- Added a contract-only `FrontendStack` that publishes SSM parameters for artifact bucket, prefix patterns, API base URL, SSR runtime, and intended architecture.
+- No frontend CloudFront distribution, Lambda SSR function, Function URL, API Gateway origin, Route53 record, WAF, VPC, NAT, EC2, ECS, or new S3 bucket was created in this foundation step.
+- Future implementation should deploy CloudFront + S3 static origin + Lambda SSR only after the frontend repo publishes a verified manifest containing browser assets and the SSR bundle key.
+
+## 2026-06-18 16:31 Central Time
+
+Route53 steady-state hardening:
+
+- Removed `deleteExisting` from the API custom-domain A/AAAA records in CDK.
+- The one-time cutover from unmanaged DNS records is complete; future deploys should not delete existing Route53 records as part of normal convergence.
+
+## 2026-06-18 18:05 Central Time
+
+Frontend AWS SSR hosting implementation:
+
+- `FrontendStack` now always publishes the artifact contract plus a frontend publisher OIDC role for `LynxPardelle/lynx-portfolio-angular`.
+- With no `FRONTEND_RELEASE_ID`, the stack remains safe to deploy as contract/publisher foundation only.
+- With `FRONTEND_RELEASE_ID`, the stack creates:
+  - Node.js 22 ARM64 Lambda SSR from `s3://lynx-portfolio/frontend/angular-ssr/{env}/releases/{releaseId}/server/ssr-handler.zip`.
+  - Lambda Function URL with `AWS_IAM`.
+  - CloudFront origin access control for the Function URL.
+  - CloudFront distribution with dynamic/default routes to Lambda SSR.
+  - Static path behaviors to `assets.lynxpardelle.com` with origin path `frontend/angular-ssr/{env}/releases/{releaseId}/browser`.
+  - One-month CloudWatch log retention.
+  - Dev/tst Route53 A/AAAA records when configured.
+- Prod frontend Route53 records remain disabled by default to avoid replacing existing `lynxpardelle.com` and `www.lynxpardelle.com` A records until final cutover.
+- Bucket policy risk was avoided: the stack does not create an `AWS::S3::BucketPolicy` for the existing `lynx-portfolio` bucket because that bucket already has a policy for the current assets CloudFront distribution.
+- GitHub Actions deploy workflows pass `FRONTEND_RELEASE_ID` from environment variables into CDK deploy.
+- Validation passed:
+  - `npm test` exited 0 with 16/16 infra tests passing.
+  - `npm run validate` exited 0 with `cdk synth`.
+  - `$env:FRONTEND_RELEASE_ID='local-smoke'; npm run validate` exited 0 with `cdk synth`.
