@@ -408,3 +408,16 @@ Frontend AWS SSR hosting implementation:
   - `npm test` exited 0 with 16/16 infra tests passing.
   - `npm run validate` exited 0 with `cdk synth`.
   - `$env:FRONTEND_RELEASE_ID='local-smoke'; npm run validate` exited 0 with `cdk synth`.
+
+## 2026-06-18 18:21 Central Time
+
+Frontend dev OAC permission fix:
+
+- `https://dev.lynxpardelle.com` initially returned HTTP 403 after deploying CloudFront + Lambda SSR.
+- CloudFront distribution `E11XU21EUJLB9B` was `Deployed` and aliased to `dev.lynxpardelle.com`.
+- The 403 body was Lambda Function URL `AccessDeniedException`, and no Lambda log stream was created, which showed the request was blocked before invoking SSR.
+- Kept the Function URL private with `AWS_IAM`.
+- Added Lambda resource-policy permissions for CloudFront OAC:
+  - `lambda:InvokeFunctionUrl` with `FunctionUrlAuthType: AWS_IAM`.
+  - `lambda:InvokeFunction`.
+- Added infra tests that assert both CloudFront permissions are synthesized.
