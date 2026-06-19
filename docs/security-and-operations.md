@@ -23,6 +23,7 @@ During the migration, do not copy those values into this repo, GitHub Actions lo
 - Prefer Cognito and API Gateway authorizers over custom JWT secrets.
 - Use DynamoDB point-in-time recovery in prod.
 - Use S3 block public access and CloudFront OAC for media.
+- Use S3 block public access and CloudFront OAC for frontend static artifacts.
 - Require HTTPS everywhere.
 - Encrypt all data stores with AWS-managed or customer-managed keys as appropriate.
 - Keep Lambda IAM policies narrow by resource and action.
@@ -71,8 +72,17 @@ Dev/tst:
 Use serverless-first services to avoid a permanently running EC2 baseline:
 
 - Lambda/API Gateway for request-driven compute.
+- Lambda SSR and CloudFront/S3 for frontend hosting instead of EC2 or another always-on container.
 - DynamoDB on-demand during early migration.
 - CloudWatch log retention limits.
 - S3 lifecycle rules similar to the current `lynx-portfolio` bucket.
 
 Review AWS Budgets before enabling costly optional services.
+
+### Frontend Artifact Controls
+
+- The frontend publishing role should only write to `s3://lynx-portfolio/frontend/angular-ssr/{env}/*`.
+- Frontend artifacts and manifests must not contain secrets.
+- The SSR Lambda should receive `API_BASE_URL=https://api.lynxpardelle.com` as runtime configuration.
+- Do not add WAF for frontend hosting unless Alec explicitly approves the cost and scope.
+- Do not keep Route53 `deleteExisting` in steady-state CDK. It was only acceptable for the one-time API DNS cutover and should not be part of normal deployments.

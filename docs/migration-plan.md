@@ -11,6 +11,7 @@
 4. Reuse the existing `lynx-portfolio` S3 bucket for media assets.
 5. Export a recent MongoDB backup before any migration test.
 6. Treat the current `https://api.lynxpardelle.com` endpoint as non-working. Do not use it as the parity source or rollback target.
+7. Keep Angular source, builds, tests, and release artifacts in `lynx-portfolio-angular`; this infra repo consumes only published artifact coordinates.
 
 ## Data Migration
 
@@ -81,6 +82,21 @@ Use idempotent import:
 8. Freeze old writes briefly only if the old backend is still accepting writes at that point.
 9. Point DNS/API custom domain `api.lynxpardelle.com` to the new API.
 
+## Frontend Migration
+
+1. Keep the frontend API base URL pointed at `https://api.lynxpardelle.com`.
+2. Have the frontend repo build and test Angular SSR.
+3. Publish immutable frontend artifacts to:
+
+```text
+s3://lynx-portfolio/frontend/angular-ssr/{env}/releases/{releaseId}/
+```
+
+4. Include `manifest.json`, `browser/`, `server/`, and `server/ssr-handler.zip` in each release.
+5. Feed only the release manifest key or release id to this infra repo through PR, workflow input, or repository dispatch.
+6. Deploy CloudFront, S3 origin configuration, and SSR Lambda from this infra repo after the artifact shape is verified.
+7. Smoke-test SSR routes, static assets, and API calls before moving `lynxpardelle.com` and `www.lynxpardelle.com` DNS from the current EC2/Dokploy target.
+
 ## Rollback
 
 The current public API endpoint is not working, so there is no active monolith rollback target to preserve.
@@ -106,3 +122,4 @@ Minimum checks per environment:
 - CloudWatch alarms exist and are not in alarm state after smoke.
 - No direct branch push is possible on protected branches.
 - `https://api.lynxpardelle.com/health` returns from the new serverless API after production cutover.
+- Frontend SSR returns HTTP 200 for core routes and calls `https://api.lynxpardelle.com` successfully.

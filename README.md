@@ -26,7 +26,7 @@ npm run migration:export -- --dump C:\Users\lince\Downloads\dump --env dev --out
 
 ## Current Scope
 
-This repo contains the first CDK foundation for the migration: environment stages, GitHub OIDC deployment workflows, base SSM parameters, placeholder migration secrets, minimal observability, and DynamoDB tables for the initial content migration scope. API Gateway/Lambda microservices are still planned next.
+This repo contains the CDK foundation for the migration: environment stages, GitHub OIDC deployment workflows, base SSM parameters, placeholder migration secrets, minimal observability, DynamoDB tables for the initial content migration scope, the first public API Gateway/Lambda implementation, and AWS frontend SSR hosting that consumes Angular artifacts from the frontend repo. Angular source, builds, tests, and artifacts stay in the frontend repo.
 
 ## Documentation
 
@@ -40,3 +40,4 @@ This repo contains the first CDK foundation for the migration: environment stage
 - `docs/api-contract-inventory.md`: source-derived route and data-model inventory.
 - `docs/mongodb-backup-procedure.md`: backup procedure required before migration tests.
 - `docs/oidc-deploy-roles.md`: GitHub OIDC deploy-role setup notes.
+- `docs/frontend-ssr-hosting-plan.md`: frontend SSR hosting boundary, artifact contract, and CloudFront/Lambda deployment plan.

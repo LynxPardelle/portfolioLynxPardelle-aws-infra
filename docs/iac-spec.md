@@ -10,15 +10,16 @@ Use JavaScript CDK. Versions checked with npm on 2026-06-18:
 
 ## Current Scaffold
 
-The repo contains these CDK stack placeholders:
+The repo contains these CDK stack boundaries:
 
 - `NetworkStack`
 - `DataStack`
 - `ApiStack`
+- `FrontendStack`
 - `EdgeStack`
 - `ObservabilityStack`
 
-They synthesize outputs only for now. The next implementation should add real resources stack by stack, with `npm run synth` kept green at each step.
+The next implementation should add real resources stack by stack, with `npm run synth` kept green at each step.
 
 ## Stack Responsibilities
 
@@ -80,6 +81,23 @@ Planned resources:
 - References to the existing CloudFront media distribution and OAC path for private S3 media delivery.
 
 Current asset distribution `EPT5BBK0QX89M` should be imported or left managed outside CDK until a safe replacement path is ready. Do not delete or replace it blindly.
+
+### FrontendStack
+
+Foundation resources:
+
+- SSM parameters for the Angular SSR hosting artifact contract.
+- CloudFormation outputs for the artifact bucket, artifact prefix, and API base URL.
+
+Planned resources after the frontend artifact contract is verified:
+
+- CloudFront distribution for `lynxpardelle.com` and `www.lynxpardelle.com`.
+- S3 origin using existing bucket `lynx-portfolio` and prefix `frontend/angular-ssr/{env}/releases/{releaseId}/browser`.
+- Lambda SSR origin using an artifact from `frontend/angular-ssr/{env}/releases/{releaseId}/server/ssr-handler.zip`.
+- Log groups with bounded retention.
+- Route53 records and ACM certificate references following the existing domain patterns.
+
+Do not add Angular source, Angular package installation, or Angular build commands to this repo. Do not create WAF, VPC, NAT, EC2, ECS, or a new S3 bucket by default.
 
 ### ObservabilityStack
 

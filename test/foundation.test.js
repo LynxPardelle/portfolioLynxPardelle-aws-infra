@@ -7,6 +7,7 @@ const { Template } = require("aws-cdk-lib/assertions");
 
 const { ApiStack } = require("../lib/stacks/api-stack");
 const { DataStack } = require("../lib/stacks/data-stack");
+const { FrontendStack } = require("../lib/stacks/frontend-stack");
 const { ObservabilityStack } = require("../lib/stacks/observability-stack");
 const {
   buildParameterName,
@@ -26,6 +27,18 @@ const testEnvironment = {
   assetDomainName: "assets.lynxpardelle.com",
   currentAssetsBucketName: "lynx-portfolio",
   currentAssetsDistributionId: "EPT5BBK0QX89M",
+  frontendHosting: {
+    architecture: "cloudfront-s3-lambda-ssr",
+    apiBaseUrl: "https://api.lynxpardelle.com",
+    artifactBucketName: "lynx-portfolio",
+    artifactBasePrefix: "frontend/angular-ssr/dev",
+    staticOriginDomainName: "assets.lynxpardelle.com",
+    publisherRepository: "LynxPardelle/lynx-portfolio-angular",
+    manifestKeyPattern: "frontend/angular-ssr/dev/releases/{releaseId}/manifest.json",
+    staticPrefixPattern: "frontend/angular-ssr/dev/releases/{releaseId}/browser",
+    serverBundlePrefixPattern: "frontend/angular-ssr/dev/releases/{releaseId}/server",
+    ssrRuntime: "nodejs22.x",
+  },
   removalPolicy: "destroy",
 };
 
@@ -196,6 +209,117 @@ test("prod ApiStack maps the public API to api.lynxpardelle.com", () => {
   template.hasResourceProperties("AWS::Route53::RecordSet", {
     Name: "api.lynxpardelle.com.",
     Type: "AAAA",
+  });
+});
+
+test("FrontendStack publishes Angular SSR artifact contract without hosting resources", () => {
+  const app = new cdk.App();
+  const stack = new FrontendStack(app, "TestFrontendStack", {
+    env: { account: testEnvironment.account, region: testEnvironment.region },
+    environment: testEnvironment,
+  });
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/hosting-architecture",
+    Type: "String",
+    Value: "cloudfront-s3-lambda-ssr",
+  });
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/api-base-url",
+    Type: "String",
+    Value: "https://api.lynxpardelle.com",
+  });
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/artifact-bucket-name",
+    Type: "String",
+    Value: "lynx-portfolio",
+  });
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/artifact-base-prefix",
+    Type: "String",
+    Value: "frontend/angular-ssr/dev",
+  });
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/manifest-key-pattern",
+    Type: "String",
+    Value: "frontend/angular-ssr/dev/releases/{releaseId}/manifest.json",
+  });
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/static-prefix-pattern",
+    Type: "String",
+    Value: "frontend/angular-ssr/dev/releases/{releaseId}/browser",
+  });
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/portfolio/dev/frontend/server-bundle-prefix-pattern",
+    Type: "String",
+    Value: "frontend/angular-ssr/dev/releases/{releaseId}/server",
+  });
+
+  assert.equal(Object.keys(template.findResources("AWS::S3::Bucket")).length, 0);
+  assert.equal(Object.keys(template.findResources("AWS::CloudFront::Distribution")).length, 0);
+  assert.equal(Object.keys(template.findResources("AWS::Lambda::Function")).length, 0);
+  assert.equal(Object.keys(template.findResources("AWS::ApiGatewayV2::Api")).length, 0);
+});
+
+test("FrontendStack deploys Lambda SSR and CloudFront when release id is configured", () => {
+  const app = new cdk.App();
+  const environment = {
+    ...testEnvironment,
+    frontendHosting: {
+      ...testEnvironment.frontendHosting,
+      releaseId: "test-release",
+      manifestKey: "frontend/angular-ssr/dev/releases/test-release/manifest.json",
+      staticPrefix: "frontend/angular-ssr/dev/releases/test-release/browser",
+      serverBundleKey: "frontend/angular-ssr/dev/releases/test-release/server/ssr-handler.zip",
+      ssrRuntime: "nodejs22.x",
+      ssrMemorySizeMb: 512,
+      ssrTimeoutSeconds: 15,
+      cachePriceClass: "PRICE_CLASS_100",
+      domainName: "dev.lynxpardelle.com",
+      certificateArn: "arn:aws:acm:us-east-1:123456789012:certificate/frontend",
+      route53RecordsEnabled: true,
+    },
+  };
+  const stack = new FrontendStack(app, "TestFrontendHostingStack", {
+    env: { account: environment.account, region: environment.region },
+    environment,
+  });
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    FunctionName: "portfolio-dev-frontend-ssr",
+    Runtime: "nodejs22.x",
+    Handler: "index.handler",
+    MemorySize: 512,
+    Timeout: 15,
+    Architectures: ["arm64"],
+    Code: {
+      S3Bucket: "lynx-portfolio",
+      S3Key: "frontend/angular-ssr/dev/releases/test-release/server/ssr-handler.zip",
+    },
+  });
+  template.hasResourceProperties("AWS::Lambda::Url", {
+    AuthType: "AWS_IAM",
+  });
+  template.hasResourceProperties("AWS::CloudFront::Distribution", {
+    DistributionConfig: {
+      Enabled: true,
+      Aliases: ["dev.lynxpardelle.com"],
+      PriceClass: "PriceClass_100",
+    },
+  });
+  template.hasResourceProperties("AWS::Route53::RecordSet", {
+    Name: "dev.lynxpardelle.com.",
+    Type: "A",
+  });
+  template.hasResourceProperties("AWS::Route53::RecordSet", {
+    Name: "dev.lynxpardelle.com.",
+    Type: "AAAA",
+  });
+  template.hasResourceProperties("AWS::Logs::LogGroup", {
+    LogGroupName: "/aws/lambda/portfolio-dev-frontend-ssr",
+    RetentionInDays: 30,
   });
 });
 
