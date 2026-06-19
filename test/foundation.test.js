@@ -302,6 +302,15 @@ test("FrontendStack deploys Lambda SSR and CloudFront when release id is configu
   template.hasResourceProperties("AWS::Lambda::Url", {
     AuthType: "AWS_IAM",
   });
+  template.hasResourceProperties("AWS::Lambda::Permission", {
+    Action: "lambda:InvokeFunctionUrl",
+    Principal: "cloudfront.amazonaws.com",
+    FunctionUrlAuthType: "AWS_IAM",
+  });
+  template.hasResourceProperties("AWS::Lambda::Permission", {
+    Action: "lambda:InvokeFunction",
+    Principal: "cloudfront.amazonaws.com",
+  });
   template.hasResourceProperties("AWS::CloudFront::Distribution", {
     DistributionConfig: {
       Enabled: true,
