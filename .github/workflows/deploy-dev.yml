@@ -1,6 +1,7 @@
 name: Deploy Dev
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - dev
@@ -49,4 +50,6 @@ jobs:
         run: aws sts get-caller-identity
 
       - name: Deploy dev stacks
+        env:
+          FRONTEND_RELEASE_ID: ${{ vars.FRONTEND_RELEASE_ID }}
         run: npx cdk deploy "PortfolioDev/*" --require-approval never

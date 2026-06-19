@@ -21,6 +21,22 @@ Recommended AWS baseline:
 - SNS for operational alerts.
 - CloudWatch logs, metrics, dashboards, and alarms.
 - Route53 and ACM for custom domains.
+- CloudFront, existing S3 bucket prefixes, and Lambda SSR for the Angular frontend after artifact details are stable.
+
+## Frontend SSR Hosting
+
+Purpose: move `lynx-portfolio-angular` off Dokploy without placing Angular source or build logic in this infra repo.
+
+Target:
+
+- Frontend repo builds/tests Angular SSR and publishes immutable artifacts.
+- Infra repo consumes only artifact coordinates and manifest metadata.
+- Static browser assets use the existing `lynx-portfolio` bucket under `frontend/angular-ssr/{env}/releases/{releaseId}/browser`.
+- SSR uses a Lambda artifact under `frontend/angular-ssr/{env}/releases/{releaseId}/server/ssr-handler.zip`.
+- CloudFront fronts the site domain and routes static paths to S3 and dynamic/default requests to the SSR Lambda origin.
+- Runtime API base URL remains `https://api.lynxpardelle.com`.
+
+The foundation CDK publishes SSM parameters for this contract only. It does not yet create the frontend CloudFront distribution, Lambda, Function URL/API Gateway origin, or Route53 records.
 
 ## Microservice Boundaries
 
@@ -201,6 +217,14 @@ The current account evidence only confirms one AWS account: `765932874577`. The 
 - Run parity tests.
 - Point `api.lynxpardelle.com` to the new serverless API after validated `tst`.
 - Do not maintain an active rollback path to the current monolithic backend. The current public API endpoint is not working.
+
+### Phase 5b: Frontend Hosting Cutover
+
+- Confirm the frontend artifact manifest shape from `lynx-portfolio-angular`.
+- Confirm `lynxpardelle.com` and `www.lynxpardelle.com` certificate/DNS ownership for CloudFront.
+- Deploy CloudFront + S3 static origin + Lambda SSR origin from this infra repo using published frontend artifacts.
+- Smoke-test SSR routes and static assets before changing root/www DNS away from the current Dokploy/EC2 target.
+- Keep `https://api.lynxpardelle.com` as the frontend API base URL.
 
 ### Phase 6: Decommission
 

@@ -365,3 +365,103 @@ GitHub Actions Node runtime cleanup:
   - `npm test` passed 14 tests.
   - `npm run validate` completed `cdk synth` successfully.
 - No remaining references to `actions/checkout@v4` or `actions/setup-node@v4` were found under `.github/workflows`.
+
+## 2026-06-18 15:52 Central Time
+
+Frontend AWS hosting foundation decision:
+
+- Work stayed inside `C:\Users\lince\Documents\GitHub\portfolioLynxPardelle-aws-infra`.
+- `C:\Users\lince\Documents\GitHub\lynx-portfolio-angular` was not inspected or modified.
+- Angular source, builds, tests, and release artifacts remain owned by the frontend repo.
+- The infra repo consumes only frontend artifact coordinates and manifest metadata.
+- The frontend must keep calling `https://api.lynxpardelle.com`.
+- Reuse existing S3 bucket `lynx-portfolio` for frontend release artifacts under `frontend/angular-ssr/{env}/releases/{releaseId}/`.
+- Added a contract-only `FrontendStack` that publishes SSM parameters for artifact bucket, prefix patterns, API base URL, SSR runtime, and intended architecture.
+- No frontend CloudFront distribution, Lambda SSR function, Function URL, API Gateway origin, Route53 record, WAF, VPC, NAT, EC2, ECS, or new S3 bucket was created in this foundation step.
+- Future implementation should deploy CloudFront + S3 static origin + Lambda SSR only after the frontend repo publishes a verified manifest containing browser assets and the SSR bundle key.
+
+## 2026-06-18 16:31 Central Time
+
+Route53 steady-state hardening:
+
+- Removed `deleteExisting` from the API custom-domain A/AAAA records in CDK.
+- The one-time cutover from unmanaged DNS records is complete; future deploys should not delete existing Route53 records as part of normal convergence.
+
+## 2026-06-18 18:05 Central Time
+
+Frontend AWS SSR hosting implementation:
+
+- `FrontendStack` now always publishes the artifact contract plus a frontend publisher OIDC role for `LynxPardelle/lynx-portfolio-angular`.
+- With no `FRONTEND_RELEASE_ID`, the stack remains safe to deploy as contract/publisher foundation only.
+- With `FRONTEND_RELEASE_ID`, the stack creates:
+  - Node.js 22 ARM64 Lambda SSR from `s3://lynx-portfolio/frontend/angular-ssr/{env}/releases/{releaseId}/server/ssr-handler.zip`.
+  - Lambda Function URL with `AWS_IAM`.
+  - CloudFront origin access control for the Function URL.
+  - CloudFront distribution with dynamic/default routes to Lambda SSR.
+  - Static path behaviors to `assets.lynxpardelle.com` with origin path `frontend/angular-ssr/{env}/releases/{releaseId}/browser`.
+  - One-month CloudWatch log retention.
+  - Dev/tst Route53 A/AAAA records when configured.
+- Prod frontend Route53 records remain disabled by default to avoid replacing existing `lynxpardelle.com` and `www.lynxpardelle.com` A records until final cutover.
+- Bucket policy risk was avoided: the stack does not create an `AWS::S3::BucketPolicy` for the existing `lynx-portfolio` bucket because that bucket already has a policy for the current assets CloudFront distribution.
+- GitHub Actions deploy workflows pass `FRONTEND_RELEASE_ID` from environment variables into CDK deploy.
+- Validation passed:
+  - `npm test` exited 0 with 16/16 infra tests passing.
+  - `npm run validate` exited 0 with `cdk synth`.
+  - `$env:FRONTEND_RELEASE_ID='local-smoke'; npm run validate` exited 0 with `cdk synth`.
+
+## 2026-06-18 18:21 Central Time
+
+Frontend dev OAC permission fix:
+
+- `https://dev.lynxpardelle.com` initially returned HTTP 403 after deploying CloudFront + Lambda SSR.
+- CloudFront distribution `E11XU21EUJLB9B` was `Deployed` and aliased to `dev.lynxpardelle.com`.
+- The 403 body was Lambda Function URL `AccessDeniedException`, and no Lambda log stream was created, which showed the request was blocked before invoking SSR.
+- Kept the Function URL private with `AWS_IAM`.
+- Added Lambda resource-policy permissions for CloudFront OAC:
+  - `lambda:InvokeFunctionUrl` with `FunctionUrlAuthType: AWS_IAM`.
+  - `lambda:InvokeFunction`.
+- Added infra tests that assert both CloudFront permissions are synthesized.
+
+## 2026-06-18 19:28 Central Time
+
+Full TST frontend test:
+
+- Requested URL `https://test.lynxpardelle.com/` did not resolve DNS from the local machine; tested canonical deployed host `https://tst.lynxpardelle.com/`.
+- Full report saved outside the repo at `C:\Users\lince\Documents\Codex\2026-06-18\lynx-test-full-audit\report.md`.
+- Evidence files include Playwright route results, interaction results, Lighthouse JSON, and screenshots under `C:\Users\lince\Documents\Codex\2026-06-18\lynx-test-full-audit`.
+- Passed browser checks on TST:
+  - Desktop and mobile route checks for `/`, `/webs`, `/book`, `/music`, `/reel`, `/cv`, `/blog`, and `/login` returned top-level HTTP 200.
+  - `/webs` loaded 25/25 images, `/book` loaded 23/23 images, `/music` loaded 31/31 images, `/cv` loaded visible content and images, and `/reel` rendered 3 iframes.
+  - No horizontal overflow was detected in desktop or mobile route checks.
+  - Menu offcanvas remained transparent and menu navigation to `/book` loaded 23/23 images.
+  - Language switch to English worked and persisted after reload; language button background was `rgb(255, 85, 85)`.
+- Important findings:
+  - TST direct route HTML returns the Angular shell only instead of SSR-rendered route content.
+  - Blog remains blocked by `/api/article/articles/1/5/_id/all/all` returning HTTP 404 with `No hay artículos.`
+  - Demo Reel embeds are present but Dailymotion shows an unavailable/unexpected-error message in the visible player.
+  - Lighthouse `/webs` scores were performance 46, accessibility 82, best practices 92, SEO 92; LCP was 23.0s and CLS was 0.489.
+  - `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` returned the Angular HTML shell.
+  - Common frontend security headers were absent on `https://tst.lynxpardelle.com/webs`.
+
+## 2026-06-18 20:22 Central Time
+
+TST hardening implementation for SSR/static metadata/security headers:
+
+- User decision: keep canonical TST host `https://tst.lynxpardelle.com`; do not add or fix `test.lynxpardelle.com`.
+- Changed the public API article-list behavior so an empty articles collection returns HTTP `200` with `{ "status": "success", "total_items": 0, "pages": 0, "articles": [] }` instead of HTTP `404`.
+- Added a public API regression test using a simulated DynamoDB client for the empty article-list case.
+- Added a CloudFront `ResponseHeadersPolicy` for frontend distributions when a release id is configured:
+  - `Content-Security-Policy`
+  - `Strict-Transport-Security`
+  - `X-Content-Type-Options`
+  - `X-Frame-Options`
+  - `Referrer-Policy`
+  - `X-XSS-Protection`
+  - `Permissions-Policy`
+  - `X-Powered-By` removal
+- The CSP is intentionally compatibility-first for current third-party dependencies and embeds; it includes `frame-ancestors 'self'`, `object-src 'none'`, `base-uri 'self'`, and `upgrade-insecure-requests`, while allowing the current CDN/API/media/embed hosts.
+- Added static CloudFront behaviors for `robots.txt`, `sitemap.xml`, `manifest.webmanifest`, `site.webmanifest`, `*.xml`, and `*.webmanifest` so these paths resolve from the published Angular browser artifact instead of Lambda SSR.
+- Extended `NG_TRUST_PROXY_HEADERS` for Lambda SSR to include `x-forwarded-for` and `x-forwarded-port`, matching the warnings observed in `/aws/lambda/portfolio-tst-frontend-ssr`.
+- Local validation passed:
+  - `npm test` exited 0 with 17 tests passing.
+  - `npm run validate` exited 0 with `cdk synth`.
