@@ -421,3 +421,47 @@ Frontend dev OAC permission fix:
   - `lambda:InvokeFunctionUrl` with `FunctionUrlAuthType: AWS_IAM`.
   - `lambda:InvokeFunction`.
 - Added infra tests that assert both CloudFront permissions are synthesized.
+
+## 2026-06-18 19:28 Central Time
+
+Full TST frontend test:
+
+- Requested URL `https://test.lynxpardelle.com/` did not resolve DNS from the local machine; tested canonical deployed host `https://tst.lynxpardelle.com/`.
+- Full report saved outside the repo at `C:\Users\lince\Documents\Codex\2026-06-18\lynx-test-full-audit\report.md`.
+- Evidence files include Playwright route results, interaction results, Lighthouse JSON, and screenshots under `C:\Users\lince\Documents\Codex\2026-06-18\lynx-test-full-audit`.
+- Passed browser checks on TST:
+  - Desktop and mobile route checks for `/`, `/webs`, `/book`, `/music`, `/reel`, `/cv`, `/blog`, and `/login` returned top-level HTTP 200.
+  - `/webs` loaded 25/25 images, `/book` loaded 23/23 images, `/music` loaded 31/31 images, `/cv` loaded visible content and images, and `/reel` rendered 3 iframes.
+  - No horizontal overflow was detected in desktop or mobile route checks.
+  - Menu offcanvas remained transparent and menu navigation to `/book` loaded 23/23 images.
+  - Language switch to English worked and persisted after reload; language button background was `rgb(255, 85, 85)`.
+- Important findings:
+  - TST direct route HTML returns the Angular shell only instead of SSR-rendered route content.
+  - Blog remains blocked by `/api/article/articles/1/5/_id/all/all` returning HTTP 404 with `No hay artículos.`
+  - Demo Reel embeds are present but Dailymotion shows an unavailable/unexpected-error message in the visible player.
+  - Lighthouse `/webs` scores were performance 46, accessibility 82, best practices 92, SEO 92; LCP was 23.0s and CLS was 0.489.
+  - `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` returned the Angular HTML shell.
+  - Common frontend security headers were absent on `https://tst.lynxpardelle.com/webs`.
+
+## 2026-06-18 20:22 Central Time
+
+TST hardening implementation for SSR/static metadata/security headers:
+
+- User decision: keep canonical TST host `https://tst.lynxpardelle.com`; do not add or fix `test.lynxpardelle.com`.
+- Changed the public API article-list behavior so an empty articles collection returns HTTP `200` with `{ "status": "success", "total_items": 0, "pages": 0, "articles": [] }` instead of HTTP `404`.
+- Added a public API regression test using a simulated DynamoDB client for the empty article-list case.
+- Added a CloudFront `ResponseHeadersPolicy` for frontend distributions when a release id is configured:
+  - `Content-Security-Policy`
+  - `Strict-Transport-Security`
+  - `X-Content-Type-Options`
+  - `X-Frame-Options`
+  - `Referrer-Policy`
+  - `X-XSS-Protection`
+  - `Permissions-Policy`
+  - `X-Powered-By` removal
+- The CSP is intentionally compatibility-first for current third-party dependencies and embeds; it includes `frame-ancestors 'self'`, `object-src 'none'`, `base-uri 'self'`, and `upgrade-insecure-requests`, while allowing the current CDN/API/media/embed hosts.
+- Added static CloudFront behaviors for `robots.txt`, `sitemap.xml`, `manifest.webmanifest`, `site.webmanifest`, `*.xml`, and `*.webmanifest` so these paths resolve from the published Angular browser artifact instead of Lambda SSR.
+- Extended `NG_TRUST_PROXY_HEADERS` for Lambda SSR to include `x-forwarded-for` and `x-forwarded-port`, matching the warnings observed in `/aws/lambda/portfolio-tst-frontend-ssr`.
+- Local validation passed:
+  - `npm test` exited 0 with 17 tests passing.
+  - `npm run validate` exited 0 with `cdk synth`.
