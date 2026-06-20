@@ -671,3 +671,32 @@ Non-blocking API/CSP cleanup:
   - `npm run validate` exited 0 with `cdk synth`.
   - `npm audit --omit=dev` exited 0 with `found 0 vulnerabilities`.
   - `git diff --check` exited 0; it only reported expected Windows LF-to-CRLF working-copy warnings.
+
+## 2026-06-20 01:32 Central Time
+
+Non-blocking cleanup release closure:
+
+- Frontend cleanup PR `LynxPardelle/lynx-portfolio-angular#10` merged to `main` with merge commit `4f8d254253f607146d7202c97b24858ae45fe0c8`.
+- Infra cleanup PR `LynxPardelle/portfolioLynxPardelle-aws-infra#25` merged to `dev` with merge commit `9a4a1de82a0cf5036ddf8fbab9d03533da9f7d2e`.
+- Frontend release `4f8d254253f607146d7202c97b24858ae45fe0c8` was published as SSR artifact for all environments:
+  - `dev`: workflow run `27863792815`.
+  - `tst`: workflow dispatch run `27863845805`.
+  - `prod`: workflow dispatch run `27863845823`.
+- GitHub Environment variable `FRONTEND_RELEASE_ID` was set to `4f8d254253f607146d7202c97b24858ae45fe0c8` for `dev`, `tst`, and `prod`.
+- Infra deploy and promotion evidence:
+  - `Deploy Dev` workflow dispatch run `27863877629` completed successfully after the environment variable update.
+  - Promotion PR `#26` merged `dev` -> `tst` with merge commit `6377085b394a96f9bfa581f7afe8789cfc8fdf7d`.
+  - `CDK validate` run `27863964120` and `Deploy Tst` run `27863964096` completed successfully.
+  - Promotion PR `#27` merged `tst` -> `prod` with merge commit `b8e13e99f379836253019ecedbca8c87fba94a3c`.
+  - `CDK validate` run `27864052977` and `Deploy Prod` run `27864052982` completed successfully.
+- Production HTTP smoke after deploy returned HTTP `200` for:
+  - `https://lynxpardelle.com/`
+  - `https://www.lynxpardelle.com/`
+  - `/book`, `/webs`, `/cv`, `/music`, `/reel`, and `/blog` on `https://lynxpardelle.com`
+  - `/robots.txt`, `/sitemap.xml`, and `/manifest.webmanifest`
+  - API endpoints `/health`, `/api/main/main`, `/api/main/book-imgs`, `/api/main/songs`, `/api/main/videos`, `/api/main/web-sites`, `/api/main/cv-sections`, and `/api/article/articles/1/5/_id/all/all`.
+- Production CSP check on `https://lynxpardelle.com/webs`:
+  - `script-src` no longer contains `'unsafe-inline'`.
+  - `style-src` still contains `'unsafe-inline'` intentionally for the current Angular/Ngx Angora runtime style strategy.
+- Public production body checks found no `/api/main/get-file/`, no `lynx-portfolio.s3`, no JSON `"location"` key, and no JSON `"s3Url"` key in the checked public media API payloads.
+- No browser automation package was present in either repo for an additional Playwright/Puppeteer smoke during this closure; the recorded evidence for this pass is GitHub Actions plus direct production HTTP/CSP/API checks.
