@@ -590,3 +590,84 @@ Production frontend DNS IaC cleanup:
   - `npm run validate` passed.
   - `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65 npm run synth:prod` passed.
   - `FRONTEND_PROD_RELEASE_ID=8ea322a8b3c01a6c53da51c3ccc12ad32c7fbe65 npm run diff:prod` showed the intended frontend additions: one `Custom::PortfolioFrontendAliasRecords`, its limited IAM policy for `route53:ChangeResourceRecordSets` on hosted zone `Z05088763QG63CC5SE7PN`, and the singleton custom-resource Lambda/role. No prod frontend `AWS::Route53::RecordSet` resources were introduced.
+
+## 2026-06-19 00:13 Central Time
+
+Dokploy decommission pass for migrated Lynx Portfolio production:
+
+- Alec confirmed production works and requested removing unneeded Dokploy resources while deferring security/credential cleanup until final closure.
+- Route53 showed `lynxpardelle.com`, `www.lynxpardelle.com`, `api.lynxpardelle.com`, and `assets.lynxpardelle.com` already pointed to AWS targets.
+- Dokploy project `lynxpardelle` production resources were stopped and deleted:
+  - Application `Frontend` / `lynxpardelle-frontend-3iktug`
+  - Compose `API` / `lynxpardelle-api-6qfe2b`
+  - Compose `DB` / `lynxpardelle-db-djvthu`
+- `compose.delete` used `deleteVolumes: false` because the local `C:\Users\lince\Downloads\dump` check found only 5 files totaling 2295 bytes; retained data volumes should be handled during final EC2 retirement after explicit backup confirmation.
+- Post-delete Dokploy verification showed project `lynxpardelle` environment `production` with `applications: []` and `composes: []`.
+- Post-delete container lookup returned `count: 0` for all three removed app names.
+- Post-delete production checks returned `200` for `https://lynxpardelle.com/`, `https://www.lynxpardelle.com/`, and `https://api.lynxpardelle.com/health`.
+- EC2 `LynxServer` was intentionally not stopped or terminated because Route53 still has `dokploy.lynxpardelle.com`, `alecfest-voliii.lynxpardelle.com`, `music.lynxpardelle.com`, and `origin.pantrylist.lynxpardelle.com` pointing to `32.195.120.158`.
+- Dokploy API responses can include sensitive integration values. Do not persist raw responses; rotate/revoke temporary Dokploy and unused GitHub app credentials during final security closure.
+
+Detailed report:
+
+- `docs/dokploy-decommission-report.md`
+
+## 2026-06-19 00:23 Central Time
+
+EC2 retirement inventory after Lynx Portfolio Dokploy cleanup:
+
+- Created `docs/ec2-retirement-inventory.md` for the remaining blockers to terminating `LynxServer`.
+- EC2 `i-061f471ff5edea8a9` is still `running` as `t3.medium` with public IP `32.195.120.158`, security group `LynxSG`, and unencrypted `120` GB `gp3` volume `vol-0bd5f763909f1383b`.
+- Route53 in this AWS account still has 22 A records pointing to `32.195.120.158`, mostly ZoolandingPage aliases plus `dokploy.lynxpardelle.com`, `music.lynxpardelle.com`, `alecfest-voliii.lynxpardelle.com`, and `origin.pantrylist.lynxpardelle.com`.
+- Public DNS also showed `moyra.org`, `www.moyra.org`, and `test.moyra.org` resolving to `32.195.120.158`; those zones were not present in this AWS account's Route53 hosted zones.
+- Remaining active Dokploy resources are:
+  - PantryList compose `compose-compress-back-end-port-hiewlq`
+  - Moyra frontends `moyra-test-frontend-zjuuts` and `moyra-production-frontend-qoiyw0`
+  - ZoolandingPage apps `zoolandingpage-test-m6uwhf` and `zoolandingpage-git-repo-app-sacivw`
+- Container lookup showed PantryList, Moyra, and ZoolandingPage still have running healthy containers, so the EC2 must not be stopped yet.
+- Recommended migration order: Moyra frontend SSR first, PantryList second, ZoolandingPage third, then final Dokploy/EC2/security closure.
+
+## 2026-06-19 05:09 Central Time
+
+Final frontend polish release and production closeout:
+
+- Frontend PR `LynxPardelle/lynx-portfolio-angular#8` merged to `main` at `2026-06-19T10:57:01Z` with merge commit `be6edffb6924cdb3f674798b0571b92b516cea8a`.
+- Main Angular validate run `27821610613` completed with `success`.
+- SSR artifact publish runs for release `be6edffb6924cdb3f674798b0571b92b516cea8a` completed with `success`:
+  - `dev`: `27821610622`
+  - `tst`: `27821672042`
+  - `prod`: `27821672059`
+- S3 artifact manifests existed for `dev`, `tst`, and `prod`; each environment had 51 objects and `server/ssr-handler.zip` size `19975234` bytes.
+- GitHub Environment variable `FRONTEND_RELEASE_ID` was set to `be6edffb6924cdb3f674798b0571b92b516cea8a` for `dev`, `tst`, and `prod`.
+- Infra deploy runs completed with `success`:
+  - `dev`: `27821785680`
+  - `tst`: `27821917590`
+  - `prod`: `27822046065`
+- Final route smoke for `https://lynxpardelle.com`, `/book`, `/webs`, `/cv`, `/music`, `/reel`, and `/blog` returned HTTP `200`, had no `api/main/get-file/` string, and referenced `assets.lynxpardelle.com`.
+- Root HTML script audit returned `htmlHasGetFile: false`, `scriptCount: 4`, and `scriptsWithGetFile: []`.
+- API smoke for `/health`, `/api/main/main`, `/api/main/book-imgs`, `/api/main/songs`, `/api/main/videos`, `/api/main/web-sites`, `/api/main/cv-sections`, and `/api/article/articles/1/5/_id/all/all` returned HTTP `200` with no `api/main/get-file/` strings.
+- Browser runtime audit through system Chrome returned `LynxPortfolio`, `0` page errors, and `0` `NotAllowedError` matches for the final release.
+- The final migration closeout report was added at `docs/migration-closeout-report.md`; it includes release evidence, live smoke evidence, Dokploy cleanup state, remaining security/ops closure items, EC2 retirement blockers, and a reusable Dokploy-to-AWS migration playbook.
+- `docs/current-state.md` was marked as a historical pre-migration snapshot to avoid confusing future agents with superseded DNS/API evidence.
+- Security closure remains deferred by owner decision: rotate old app/database/S3 credentials, revoke the temporary Dokploy API key, review any Dokploy/GitHub integration credentials, review retained Docker/Mongo volumes, and retire `LynxServer` only after remaining PantryList/Moyra/ZoolandingPage dependencies are moved or abandoned.
+
+## 2026-06-20 Central Time
+
+Non-blocking API/CSP cleanup:
+
+- Branch: `work/nonblocking-api-security-cleanup`.
+- Public media payloads no longer expose raw S3 `location` or `s3Url` fields for `files` documents by default.
+- `GET /api/main/file-info/{id}` no longer returns `s3Url`; it preserves `cdnUrl`, `s3Key`, checksums, metadata, and timestamps.
+- `GET /api/main/get-file/{id}` keeps compatibility redirect behavior with this priority: `cdnUrl`, generated CDN URL from `s3Key`, raw `location`, then raw `s3Url`.
+- File redirects are validated before returning HTTP 302: `https` only and host must be the configured assets CDN domain or the configured S3 bucket host. Untrusted migrated/admin URLs are ignored and fall through to the existing 404.
+- Frontend CloudFront CSP no longer includes `'unsafe-inline'` in `script-src`.
+- `style-src 'unsafe-inline'` intentionally remains because Angular/Ngx Angora runtime styles still need a separate nonce/style strategy before it can be removed safely.
+- TDD evidence:
+  - Focused infra red run first failed on raw S3 payload exposure, `file-info` `s3Url`, and `script-src 'unsafe-inline'`.
+  - Focused green run passed after the cleanup.
+- Validation passed:
+  - Focused `npm test -- test/public-api.test.js test/foundation.test.js` exited 0 with 21/21 tests passing.
+  - `npm test` exited 0 with 26/26 tests passing.
+  - `npm run validate` exited 0 with `cdk synth`.
+  - `npm audit --omit=dev` exited 0 with `found 0 vulnerabilities`.
+  - `git diff --check` exited 0; it only reported expected Windows LF-to-CRLF working-copy warnings.

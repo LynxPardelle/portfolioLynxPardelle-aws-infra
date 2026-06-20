@@ -361,6 +361,12 @@ test("FrontendStack deploys Lambda SSR and CloudFront when release id is configu
       },
     }),
   });
+  const responsePolicies = template.findResources("AWS::CloudFront::ResponseHeadersPolicy");
+  const responsePolicy = Object.values(responsePolicies)[0];
+  const contentSecurityPolicy =
+    responsePolicy.Properties.ResponseHeadersPolicyConfig.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy;
+  assert.doesNotMatch(contentSecurityPolicy, /script-src[^;]*'unsafe-inline'/);
+  assert.match(contentSecurityPolicy, /style-src[^;]*'unsafe-inline'/);
   const distributions = template.findResources("AWS::CloudFront::Distribution");
   const distribution = Object.values(distributions)[0];
   const distributionConfig = distribution.Properties.DistributionConfig;
