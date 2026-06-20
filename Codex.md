@@ -700,3 +700,21 @@ Non-blocking cleanup release closure:
   - `style-src` still contains `'unsafe-inline'` intentionally for the current Angular/Ngx Angora runtime style strategy.
 - Public production body checks found no `/api/main/get-file/`, no `lynx-portfolio.s3`, no JSON `"location"` key, and no JSON `"s3Url"` key in the checked public media API payloads.
 - No browser automation package was present in either repo for an additional Playwright/Puppeteer smoke during this closure; the recorded evidence for this pass is GitHub Actions plus direct production HTTP/CSP/API checks.
+
+## 2026-06-20 Central Time
+
+Security revocation readiness pass:
+
+- Added `docs/security-revocation-runbook.md` with the safe order for revoking the temporary Dokploy API key, reviewing Dokploy/GitHub integrations, inactivating then deleting the old portfolio S3 IAM key candidate, invalidating old Mongo/JWT credentials, and verifying production after each step.
+- Rechecked GitHub secrets and variables for `LynxPardelle/portfolioLynxPardelle-aws-infra` and `LynxPardelle/lynx-portfolio-angular`.
+  - Repo-level secrets returned no rows for both repos.
+  - Repo-level variables returned no rows for both repos.
+  - Environment secrets for `dev`, `tst`, and `prod` returned no rows for both repos.
+  - Environment variables are the expected OIDC/deploy values only: `AWS_REGION`, `AWS_ROLE_ARN`, and for infra `FRONTEND_RELEASE_ID`.
+- Rechecked AWS identity as account `765932874577`, IAM user `ADMIN-AIM-CLI`.
+- Active IAM key audit found:
+  - `ADMIN-AIM-CLI` key suffix `SFPV3KVU`, active, last used 2026-06-20 01:32 Central Time for `ses` in `us-east-1`.
+  - `LynxPortfolioUser` key suffix `U4VFGU3I`, active, last used 2026-06-18 02:09 Central Time for `s3` in `us-east-1`.
+- Did not disable or delete AWS access keys in this pass because `ADMIN-AIM-CLI` is the active admin CLI credential and `LynxPortfolioUser` must be dependency-checked against remaining Dokploy/shared-project usage before inactivation.
+- Did not delete GitHub OIDC environment variables because current deploy workflows require them and they are not static AWS secrets.
+- Did not call the Dokploy API with the temporary key during this pass because revocation requires a key id and raw key handling should stay out of shell history/logs; the runbook gives the UI-first and API alternatives for Alec to revoke it safely.
