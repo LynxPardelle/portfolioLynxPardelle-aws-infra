@@ -650,3 +650,24 @@ Final frontend polish release and production closeout:
 - The final migration closeout report was added at `docs/migration-closeout-report.md`; it includes release evidence, live smoke evidence, Dokploy cleanup state, remaining security/ops closure items, EC2 retirement blockers, and a reusable Dokploy-to-AWS migration playbook.
 - `docs/current-state.md` was marked as a historical pre-migration snapshot to avoid confusing future agents with superseded DNS/API evidence.
 - Security closure remains deferred by owner decision: rotate old app/database/S3 credentials, revoke the temporary Dokploy API key, review any Dokploy/GitHub integration credentials, review retained Docker/Mongo volumes, and retire `LynxServer` only after remaining PantryList/Moyra/ZoolandingPage dependencies are moved or abandoned.
+
+## 2026-06-20 Central Time
+
+Non-blocking API/CSP cleanup:
+
+- Branch: `work/nonblocking-api-security-cleanup`.
+- Public media payloads no longer expose raw S3 `location` or `s3Url` fields for `files` documents by default.
+- `GET /api/main/file-info/{id}` no longer returns `s3Url`; it preserves `cdnUrl`, `s3Key`, checksums, metadata, and timestamps.
+- `GET /api/main/get-file/{id}` keeps compatibility redirect behavior with this priority: `cdnUrl`, generated CDN URL from `s3Key`, raw `location`, then raw `s3Url`.
+- File redirects are validated before returning HTTP 302: `https` only and host must be the configured assets CDN domain or the configured S3 bucket host. Untrusted migrated/admin URLs are ignored and fall through to the existing 404.
+- Frontend CloudFront CSP no longer includes `'unsafe-inline'` in `script-src`.
+- `style-src 'unsafe-inline'` intentionally remains because Angular/Ngx Angora runtime styles still need a separate nonce/style strategy before it can be removed safely.
+- TDD evidence:
+  - Focused infra red run first failed on raw S3 payload exposure, `file-info` `s3Url`, and `script-src 'unsafe-inline'`.
+  - Focused green run passed after the cleanup.
+- Validation passed:
+  - Focused `npm test -- test/public-api.test.js test/foundation.test.js` exited 0 with 21/21 tests passing.
+  - `npm test` exited 0 with 26/26 tests passing.
+  - `npm run validate` exited 0 with `cdk synth`.
+  - `npm audit --omit=dev` exited 0 with `found 0 vulnerabilities`.
+  - `git diff --check` exited 0; it only reported expected Windows LF-to-CRLF working-copy warnings.

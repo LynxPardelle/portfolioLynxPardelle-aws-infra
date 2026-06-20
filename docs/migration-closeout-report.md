@@ -2,6 +2,8 @@
 
 Date: 2026-06-19 04:54 Central Time
 
+Updated: 2026-06-20 Central Time for non-blocking API/CSP cleanup.
+
 ## Verdict
 
 The Lynx Portfolio migration is complete for the portfolio workload:
@@ -29,6 +31,16 @@ Final frontend release now serving production:
 - Main Angular validate run: `27821610613`, result `success`
 
 This final release includes the prior assets-CDN migration from PR `#7` plus the follow-up production polish for caught autoplay errors, fixed-footer bottom clearance, and filtered Angora class updates.
+
+Follow-up non-blocking cleanup prepared on 2026-06-20:
+
+- Public API media payloads stop exposing raw S3 `location` fields by default.
+- Public API media payloads stop exposing raw `s3Url` fields by default.
+- `GET /api/main/file-info/{id}` stops exposing `s3Url`.
+- `GET /api/main/get-file/{id}` keeps compatibility redirect behavior and can still use raw S3 metadata internally as a final fallback after `cdnUrl` and generated CDN URLs from `s3Key`.
+- File redirects are validated before returning HTTP 302: `https` only and host must be the configured assets CDN domain or configured S3 bucket host.
+- Frontend CSP removes `'unsafe-inline'` from `script-src`.
+- `style-src 'unsafe-inline'` remains intentionally until Angular/Ngx Angora runtime styles are moved to a nonce or equivalent safer style strategy.
 
 Frontend SSR artifacts for `be6edffb6924cdb3f674798b0571b92b516cea8a`:
 
@@ -101,18 +113,20 @@ Security headers on `https://lynxpardelle.com/webs` were present:
 
 ## Assets And Data Audit
 
-The post-change data/media audit found:
+The 2026-06-19 post-change data/media audit found:
 
 - `0` public API media objects with `_id` missing both `cdnUrl` and `location`.
 - `0` `get-file` strings in public API JSON.
 - `0` frontend runtime `get-file` references under `src/app` excluding specs.
 - `77` raw S3-origin strings, all in `location` fields and all on media objects that also had `cdnUrl`.
 
-The raw S3 `location` fields are non-blocking because the frontend `assetUrl(file)` helper:
+Those raw S3 `location` fields were non-blocking because the frontend `assetUrl(file)` helper:
 
 - Prefers `file.cdnUrl`.
 - Rewrites `https://lynx-portfolio.s3.us-east-1.amazonaws.com` to `https://assets.lynxpardelle.com`.
 - Returns an empty string instead of constructing legacy API `get-file` URLs when metadata is incomplete.
+
+The 2026-06-20 API cleanup supersedes that residual observation by removing raw S3 `location` and `s3Url` fields from public `files` documents unless the request is the internal `get-file` compatibility redirect path.
 
 Public API endpoint audit:
 
@@ -170,7 +184,8 @@ Final runtime audit after release `be6edffb6924cdb3f674798b0571b92b516cea8a` fou
 - All requested API endpoints returned HTTP `200` with `application/json; charset=utf-8`.
 - `api/main/get-file/` had `0` matches across checked HTML and API bodies.
 - Browser first load through Playwright with system Chrome returned title `LynxPortfolio`, `0` page errors, and `0` `NotAllowedError` matches.
-- Non-blocking observations remained: raw S3 `location` values still accompany CDN URLs in API payloads, browser console output is still noisy, two WAV requests were canceled with `net::ERR_ABORTED`, and CSP still includes `'unsafe-inline'`.
+- Non-blocking observations from the 2026-06-19 final runtime audit were: raw S3 `location` values still accompanied CDN URLs in API payloads, browser console output was still noisy, two WAV requests were canceled with `net::ERR_ABORTED`, and CSP still included `'unsafe-inline'`.
+- The 2026-06-20 cleanup addresses the app-owned browser console noise, raw S3 public payload fields, `file-info` `s3Url`, frontend media guards that depended on legacy `location`, and `script-src 'unsafe-inline'`. Remaining intentional security debt: `style-src 'unsafe-inline'` for Angular/Ngx Angora runtime style compatibility.
 
 ## AWS Resources Serving Production
 
@@ -234,6 +249,10 @@ Detailed EC2 retirement inventory:
 | P1 | Rotate Dokploy/GitHub integration credentials exposed through Dokploy responses | Deferred; requires owner approval |
 | P1 | Review retained Docker/Mongo volumes before deletion | Deferred; requires backup validation and owner signoff |
 | P1 | Terminate `LynxServer` | Blocked by remaining non-portfolio projects and DNS records |
+| P2 | Remove raw S3 `location` and `s3Url` from public API media payloads | Done in 2026-06-20 follow-up; `get-file` redirect fallback retained |
+| P2 | Remove app-owned noisy frontend console diagnostics | Done in 2026-06-20 frontend follow-up |
+| P2 | Remove CSP `script-src 'unsafe-inline'` | Done in 2026-06-20 infra follow-up |
+| P2 | Remove CSP `style-src 'unsafe-inline'` | Deferred; requires Angular/Ngx Angora nonce or style strategy |
 | P2 | Review old CloudFront `E10Y59XAIPQY6A` with no aliases | Later cleanup |
 | P2 | Delete merged local frontend work branches | Safe after local branch refresh |
 | P2 | Delete merged remote infra work branches | Requires owner confirmation |
