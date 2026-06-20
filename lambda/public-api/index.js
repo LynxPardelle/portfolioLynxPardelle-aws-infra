@@ -233,8 +233,9 @@ async function getFile(id) {
     });
   }
 
-  const file = await getFileById(id);
-  const targetUrl = file && (file.cdnUrl || file.location || buildCdnUrl(file.s3Key));
+  const file = await getFileById(id, { exposeRawS3Location: true });
+  const targetUrl =
+    file && firstAllowedFileRedirectUrl([file.cdnUrl, buildCdnUrl(file.s3Key), file.location, file.s3Url]);
   if (targetUrl) {
     return redirect(targetUrl);
   }
@@ -268,7 +269,6 @@ async function getFileInfo(id) {
       mimeType: file.metadata?.mimeType,
       cdnUrl: file.cdnUrl || buildCdnUrl(file.s3Key),
       s3Key: file.s3Key,
-      s3Url: file.location,
       checksums: file.checksums,
       metadata: file.metadata,
       createdAt: file.createdAt,
@@ -498,11 +498,11 @@ async function populateFileFieldsForDocs(docs, fields) {
   });
 }
 
-async function getFileById(id) {
+async function getFileById(id, options = {}) {
   if (!id) {
     return undefined;
   }
-  return getItemByKey(tables.files, `FILE#${id}`, "METADATA");
+  return getItemByKey(tables.files, `FILE#${id}`, "METADATA", options);
 }
 
 async function getFilesByIds(ids) {
@@ -535,7 +535,7 @@ async function getFilesByIds(ids) {
   return result;
 }
 
-async function getItemByKey(tableName, pk, sk) {
+async function getItemByKey(tableName, pk, sk, options = {}) {
   assertTable(tableName);
   const response = await client.send(
     new GetItemCommand({
@@ -546,7 +546,7 @@ async function getItemByKey(tableName, pk, sk) {
       },
     })
   );
-  return response.Item ? toPublicDocument(response.Item) : undefined;
+  return response.Item ? toPublicDocument(response.Item, options) : undefined;
 }
 
 async function queryByPk(tableName, pk) {
@@ -618,7 +618,7 @@ async function scanByEntity(tableName, entityType) {
   return items;
 }
 
-function toPublicDocument(item) {
+function toPublicDocument(item, options = {}) {
   const document = unmarshall(item);
   const publicDocument = JSON.parse(JSON.stringify(document));
   if (document.legacyMongoId) {
@@ -636,6 +636,11 @@ function toPublicDocument(item) {
     "migrationBatchId",
   ]) {
     delete publicDocument[internalField];
+  }
+
+  if (document.entityType === "files" && !options.exposeRawS3Location) {
+    delete publicDocument.location;
+    delete publicDocument.s3Url;
   }
 
   return publicDocument;
@@ -724,6 +729,40 @@ function buildCdnUrl(s3Key) {
     return undefined;
   }
   return `https://${process.env.ASSETS_DOMAIN}/${encodeURI(s3Key).replace(/%2F/g, "/")}`;
+}
+
+function firstAllowedFileRedirectUrl(candidates) {
+  return candidates.find(isAllowedFileRedirectUrl);
+}
+
+function isAllowedFileRedirectUrl(candidate) {
+  if (!candidate || typeof candidate !== "string") {
+    return false;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(candidate);
+  } catch (_error) {
+    return false;
+  }
+
+  if (parsed.protocol !== "https:") {
+    return false;
+  }
+
+  const allowedHosts = new Set();
+  if (process.env.ASSETS_DOMAIN) {
+    allowedHosts.add(process.env.ASSETS_DOMAIN.toLowerCase());
+  }
+  if (process.env.ASSETS_BUCKET) {
+    const bucket = process.env.ASSETS_BUCKET.toLowerCase();
+    const region = (process.env.AWS_REGION || "us-east-1").toLowerCase();
+    allowedHosts.add(`${bucket}.s3.${region}.amazonaws.com`);
+    allowedHosts.add(`${bucket}.s3.amazonaws.com`);
+  }
+
+  return allowedHosts.has(parsed.hostname.toLowerCase());
 }
 
 function normalizePath(pathname) {
