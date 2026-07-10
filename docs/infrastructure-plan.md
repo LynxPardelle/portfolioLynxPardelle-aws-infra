@@ -16,7 +16,7 @@ Recommended AWS baseline:
 - S3 for media assets, uploads, exports, and migration artifacts.
 - CloudFront for media delivery.
 - Cognito for admin authentication, or a short transition layer that preserves JWT only during migration.
-- Secrets Manager for external credentials and migration-only secrets.
+- Secrets Manager only where rotation/lifecycle features are required.
 - EventBridge for scheduled jobs and async maintenance.
 - SNS for operational alerts.
 - CloudWatch logs, metrics, dashboards, and alarms.
@@ -185,7 +185,7 @@ The current account evidence only confirms one AWS account: `765932874577`. The 
 
 ### Phase 1: Foundation
 
-- Implement CDK stacks for environment config, tags, SSM parameters, Secrets Manager placeholders, log groups, SNS topics, and budgets.
+- Implement CDK stacks for environment config, tags, SSM parameters, log groups, SNS topics, and budgets.
 - Import or reference existing hosted zone `lynxpardelle.com`.
 - Reference the existing `lynx-portfolio` assets bucket and current CloudFront assets distribution. Do not replace or delete the existing assets path during foundation work.
 - Add GitHub Actions deployment workflows using the same OIDC/environment-variable pattern already used in Moyra and Zoolanding AWS repos, adapted to this repo's `dev` -> `tst` -> `prod` promotion model.
