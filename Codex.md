@@ -718,3 +718,82 @@ Security revocation readiness pass:
 - Did not disable or delete AWS access keys in this pass because `ADMIN-AIM-CLI` is the active admin CLI credential and `LynxPortfolioUser` must be dependency-checked against remaining Dokploy/shared-project usage before inactivation.
 - Did not delete GitHub OIDC environment variables because current deploy workflows require them and they are not static AWS secrets.
 - Did not call the Dokploy API with the temporary key during this pass because revocation requires a key id and raw key handling should stay out of shell history/logs; the runbook gives the UI-first and API alternatives for Alec to revoke it safely.
+
+## 2026-07-09 Central Time
+
+Secrets Manager cost-reduction decision for Portfolio migration source placeholders:
+
+- Scope from delegated AWS context: account `765932874577`, region `us-east-1`, existing Secrets Manager resources `portfolio-dev-migration-mongo-source`, `portfolio-tst-migration-mongo-source`, and `portfolio-prod-migration-mongo-source`, each tagged for `Project=portfolioLynxPardelle`, with `LastAccessedDate=null` and no rotation configured.
+- Repo creation point before this change: `lib/stacks/data-stack.js` created `MigrationMongoSourceSecret` as `AWS::SecretsManager::Secret` named `portfolio-{env}-migration-mongo-source`.
+- Repo read points found in this pass: no code path in `lib/`, `lambda/`, `scripts/`, or `test/` reads those migration source secrets through `secretsmanager:GetSecretValue`; Mongo backup docs still use shell-provided `MONGODB_URI` and do not read these placeholders.
+- New creation point: `lib/stacks/data-stack.js` creates `/portfolio/{env}/migration/mongo-source` through a CDK `AwsCustomResource` call to `ssm:PutParameter` with `Type=SecureString`, `Tier=Standard`, and a non-sensitive placeholder value. CDK/CloudFormation cannot natively create SSM `SecureString`, so the custom resource is create-only, ignores `ParameterAlreadyExists`, and does not overwrite a later real migrated value.
+- IAM decision: the custom resource role is limited to `ssm:PutParameter` and `ssm:AddTagsToResource` on the exact parameter ARN `arn:${Partition}:ssm:${Region}:${Account}:parameter/portfolio/{env}/migration/mongo-source`. No `secretsmanager:GetSecretValue` permission is introduced.
+- KMS decision: no customer managed KMS key is created. Omitting `KeyId` uses the AWS managed Parameter Store key `alias/aws/ssm`; therefore no explicit `kms:Decrypt` grant is added in this migration. If a future customer managed key is chosen, readers must receive `ssm:GetParameter`/`ssm:GetParameters` on the exact parameter ARN plus `kms:Decrypt` on that key.
+- Security tradeoff: SSM SecureString keeps encryption at rest and path-scoped IAM, but using `alias/aws/ssm` does not provide a customer-managed key policy boundary. This is acceptable for these low-use migration placeholders because the existing Secrets Manager resources had no rotation configured and no repo consumers; use a customer managed KMS key later if key-policy isolation becomes more important than the fixed monthly key cost.
+- Cost expectation from AWS pricing checked during this change: Parameter Store standard parameters and standard throughput API interactions are listed at no additional charge; AWS managed KMS keys have no monthly key fee, though KMS request usage can still matter at scale. For these three low-use placeholders, expected fixed monthly parameter storage cost is `$0`; this removes the roughly `$1.20/month` Secrets Manager list-price share for 3 of the 7 secrets in the delegated context, plus any calls tied to those three secrets. The full account Secrets Manager line will not drop to `$0` unless the other four secrets are handled separately.
+- Safe deployment and rollback: deploy `dev`, validate the SSM parameter exists and is `SecureString`, then promote `dev -> tst -> prod`. This change does not delete the existing Secrets Manager secrets. If rollback is needed, revert this CDK change and redeploy; the old Secrets Manager resources remain available because deletion is intentionally out of scope. After every consumer is confirmed on SSM, schedule old Secrets Manager secrets for deletion with a recovery window, preferably the default 30 days; AWS documents a minimum 7-day recovery window and allows restoring before the window ends.
+- Validation command for this change: `npm test -- test/foundation.test.js` passed with 12/12 tests.
+- Live AWS verification during this pass: `aws sts get-caller-identity` returned account `765932874577` as IAM user `LynxPortfolioUser`. Read-only `secretsmanager:list-secrets` and `ssm:DescribeParameters` checks failed with `AccessDeniedException`, so no additional live AWS secret/parameter state was verified in this pass.
+
+## 2026-07-09 17:58 Central Time
+
+Completed live AWS migration from Secrets Manager placeholders to SSM Parameter Store using profile `ADMIN-AIM-CLI`:
+
+- `aws sts get-caller-identity --profile ADMIN-AIM-CLI` returned account `765932874577`, ARN `arn:aws:iam::765932874577:user/ADMIN-AIM-CLI`.
+- Current CloudFormation templates before deployment had `MigrationMongoSourceSecret` with `DeletionPolicy: Delete` and `UpdateReplacePolicy: Delete` in `dev` and `tst`; `prod` already had `Retain`.
+- Added one-time CDK safety flag `RETAIN_OLD_MIGRATION_SECRETS=true` so the first deployment keeps the legacy `AWS::SecretsManager::Secret` logical id but changes its policies to `Retain`.
+- Phase 1 CDK diff showed:
+  - Added `Custom::PortfolioSecureStringParameter`, provider log group, IAM role, Lambda, and policy.
+  - Policy allowed only `ssm:PutParameter` and `ssm:AddTagsToResource` against each exact `/portfolio/{env}/migration/mongo-source` ARN.
+  - `dev` and `tst` changed `DeletionPolicy` and `UpdateReplacePolicy` from `Delete` to `Retain`.
+- Phase 1 deploy succeeded for:
+  - `PortfolioDev/Portfolio-dev-Data`
+  - `PortfolioTst/Portfolio-tst-Data`
+  - `PortfolioProd/Portfolio-prod-Data`
+- `aws ssm describe-parameters` verified:
+  - `/portfolio/dev/migration/mongo-source`: `Type=SecureString`, `Tier=Standard`, `KeyId=alias/aws/ssm`, `Version=1`, `LastModifiedDate=2026-07-09T17:52:27.464000-06:00`.
+  - `/portfolio/tst/migration/mongo-source`: `Type=SecureString`, `Tier=Standard`, `KeyId=alias/aws/ssm`, `Version=1`, `LastModifiedDate=2026-07-09T17:53:34.739000-06:00`.
+  - `/portfolio/prod/migration/mongo-source`: `Type=SecureString`, `Tier=Standard`, `KeyId=alias/aws/ssm`, `Version=1`, `LastModifiedDate=2026-07-09T17:54:41.591000-06:00`.
+- Tried to copy any existing current secret values without printing secret values. All three `aws secretsmanager get-secret-value` calls failed with `ResourceNotFoundException`: `Secrets Manager can't find the specified secret value for staging label: AWSCURRENT`. Therefore no real secret value was copied; SSM retains the non-sensitive placeholder value created by CDK.
+- Phase 2 CDK diff without `RETAIN_OLD_MIGRATION_SECRETS` showed removal of `MigrationMongoSourceSecret` as `orphan` for `dev`, `tst`, and `prod`.
+- Phase 2 deploy succeeded for all three Data stacks. CloudFormation events showed `DELETE_SKIPPED` for `MigrationMongoSourceSecret`, confirming the old secrets were retained rather than deleted by stack update.
+- `aws cloudformation list-stack-resources` returned `[]` for logical resource id `MigrationMongoSourceSecret` in all three Data stacks, confirming CloudFormation no longer manages those secrets.
+- Scheduled the old Secrets Manager resources for deletion with `--recovery-window-in-days 30`; `delete-secret` returned:
+  - `portfolio-dev-migration-mongo-source`, ARN `arn:aws:secretsmanager:us-east-1:765932874577:secret:portfolio-dev-migration-mongo-source-aw0uPE`, `DeletionDate=2026-08-08T17:57:54.895000-06:00`.
+  - `portfolio-tst-migration-mongo-source`, ARN `arn:aws:secretsmanager:us-east-1:765932874577:secret:portfolio-tst-migration-mongo-source-GWx0cZ`, `DeletionDate=2026-08-08T17:57:54.890000-06:00`.
+  - `portfolio-prod-migration-mongo-source`, ARN `arn:aws:secretsmanager:us-east-1:765932874577:secret:portfolio-prod-migration-mongo-source-2lmuTY`, `DeletionDate=2026-08-08T17:57:54.894000-06:00`.
+- Follow-up `describe-secret` and `list-secrets --include-planned-deletion` returned `DeletedDate` timestamps around `2026-07-09T17:57:54-06:00`, with `LastAccessedDate=null` and `RotationEnabled=null`. The AWS CLI returned both date fields exactly as recorded here; do not reinterpret them without rechecking AWS docs/API behavior.
+- Recovery command if rollback is needed before final deletion:
+  - `aws secretsmanager restore-secret --profile ADMIN-AIM-CLI --region us-east-1 --secret-id portfolio-dev-migration-mongo-source`
+  - `aws secretsmanager restore-secret --profile ADMIN-AIM-CLI --region us-east-1 --secret-id portfolio-tst-migration-mongo-source`
+  - `aws secretsmanager restore-secret --profile ADMIN-AIM-CLI --region us-east-1 --secret-id portfolio-prod-migration-mongo-source`
+- Validation after AWS changes:
+  - `npm test -- test/foundation.test.js` passed with 13/13 tests.
+  - `npm run synth:dev` passed and printed `80 feature flags are not configured`.
+  - `git diff --check` passed; only LF-to-CRLF warnings were printed for changed files.
+  - Final `npx cdk diff "PortfolioDev/Portfolio-dev-Data" "PortfolioTst/Portfolio-tst-Data" "PortfolioProd/Portfolio-prod-Data" --profile ADMIN-AIM-CLI` returned `There were no differences` for all three stacks and `Number of stacks with differences: 0`.
+
+## 2026-07-10 11:23 Central Time
+
+Removed unnecessary SSM SecureString migration placeholders after confirming no code consumed the previous Secrets Manager placeholders:
+
+- Repo search found no actual reader for `GetSecretValue`, `ssm:GetParameter`, `ssm:GetParameters`, or `/portfolio/{env}/migration/mongo-source`; the only Mongo credential path in repo docs remains shell-provided `MONGODB_URI`.
+- Removed the CDK `AwsCustomResource`/Lambda/IAM/log group path that created `/portfolio/{env}/migration/mongo-source`.
+- Removed current docs that described SSM SecureString migration placeholders as part of the intended foundation.
+- Deployed the removal to:
+  - `PortfolioDev/Portfolio-dev-Data`
+  - `PortfolioTst/Portfolio-tst-Data`
+  - `PortfolioProd/Portfolio-prod-Data`
+- CloudFormation deleted the custom resources, provider Lambdas, IAM policies, and IAM roles. Dev/tst provider log groups were deleted by the stack; prod provider log group was retained by policy and then deleted manually.
+- Deleted SSM parameters:
+  - `/portfolio/dev/migration/mongo-source`
+  - `/portfolio/tst/migration/mongo-source`
+  - `/portfolio/prod/migration/mongo-source`
+- Verification:
+  - `aws ssm describe-parameters --profile ADMIN-AIM-CLI --region us-east-1 --parameter-filters Key=Name,Option=Contains,Values=/portfolio/ --query "Parameters[?contains(Name, 'migration/mongo-source')].{Name:Name,Type:Type,Tier:Tier}" --output json` returned `[]`.
+  - `aws logs describe-log-groups --profile ADMIN-AIM-CLI --region us-east-1 --log-group-name-prefix /aws/lambda/portfolio-prod-ssm-secure-parameter-provider --query "logGroups[].logGroupName" --output json` returned `[]`.
+  - `npx cdk diff "PortfolioDev/Portfolio-dev-Data" "PortfolioTst/Portfolio-tst-Data" "PortfolioProd/Portfolio-prod-Data" --profile ADMIN-AIM-CLI` returned `There were no differences` for all three stacks and `Number of stacks with differences: 0`.
+  - `npm test -- test/foundation.test.js` passed with 12/12 tests.
+  - `npm run synth:dev` passed and printed `80 feature flags are not configured`.
+  - `git diff --check` passed; only LF-to-CRLF warnings were printed for changed files.
+- Existing Secrets Manager resources remain scheduled for deletion from the previous step; do not restore them unless a real consumer is added before the recovery window ends.
