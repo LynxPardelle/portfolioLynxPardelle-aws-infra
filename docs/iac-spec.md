@@ -48,7 +48,6 @@ Planned resources:
   - `portfolio-{env}-migration-manifests`
 - References to the existing `lynx-portfolio` S3 bucket for media assets.
 - Migration prefixes under the existing `lynx-portfolio` S3 bucket for MongoDB export files.
-- Secrets Manager secrets for migration-only credentials.
 - SSM parameters for output references.
 
 Initial removal policy:

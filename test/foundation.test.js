@@ -64,7 +64,7 @@ test("removalPolicyForEnvironment maps environment policy strings", () => {
   );
 });
 
-test("DataStack publishes non-secret foundation references and placeholder secret", () => {
+test("DataStack publishes non-secret foundation references", () => {
   const app = new cdk.App();
   const stack = new DataStack(app, "TestDataStack", {
     env: { account: testEnvironment.account, region: testEnvironment.region },
@@ -92,13 +92,8 @@ test("DataStack publishes non-secret foundation references and placeholder secre
     Type: "String",
     Value: "EPT5BBK0QX89M",
   });
-  template.hasResourceProperties("AWS::SecretsManager::Secret", {
-    Name: "portfolio-dev-migration-mongo-source",
-  });
-  const secrets = template.findResources("AWS::SecretsManager::Secret");
-  const secretResource = Object.values(secrets)[0];
-  assert.equal(secretResource.Properties.SecretString, undefined);
-  assert.equal(secretResource.Properties.GenerateSecretString, undefined);
+  template.resourceCountIs("AWS::SecretsManager::Secret", 0);
+  template.resourceCountIs("Custom::PortfolioSecureStringParameter", 0);
 
   assert.equal(Object.keys(template.findResources("AWS::S3::Bucket")).length, 0);
   assert.equal(Object.keys(template.findResources("AWS::CloudFront::Distribution")).length, 0);
