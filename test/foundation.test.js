@@ -434,7 +434,7 @@ test("prod FrontendStack upserts existing Route53 aliases without native record 
   assert.match(createPayload, /Fn::GetAtt/);
 });
 
-test("ObservabilityStack creates bounded logs, alerts topic, and dashboard without alarms", () => {
+test("ObservabilityStack omits disconnected placeholder resources", () => {
   const app = new cdk.App();
   const stack = new ObservabilityStack(app, "TestObservabilityStack", {
     env: { account: testEnvironment.account, region: testEnvironment.region },
@@ -442,15 +442,8 @@ test("ObservabilityStack creates bounded logs, alerts topic, and dashboard witho
   });
   const template = Template.fromStack(stack);
 
-  template.hasResourceProperties("AWS::Logs::LogGroup", {
-    LogGroupName: "/aws/portfolio/dev/api",
-    RetentionInDays: 30,
-  });
-  template.hasResourceProperties("AWS::SNS::Topic", {
-    TopicName: "portfolio-dev-ops-alerts",
-  });
-  template.hasResourceProperties("AWS::CloudWatch::Dashboard", {
-    DashboardName: "portfolio-dev-operations-dashboard",
-  });
-  assert.equal(Object.keys(template.findResources("AWS::CloudWatch::Alarm")).length, 0);
+  template.resourceCountIs("AWS::Logs::LogGroup", 0);
+  template.resourceCountIs("AWS::SNS::Topic", 0);
+  template.resourceCountIs("AWS::CloudWatch::Dashboard", 0);
+  template.resourceCountIs("AWS::CloudWatch::Alarm", 0);
 });
