@@ -12,8 +12,6 @@ const collections = Object.freeze({
     ...bilingual("profileSummary", "Resumen profesional", "long"),
     ...bilingual("awsIntro", "Introducción del caso AWS", "long"),
     ...bilingual("genaiIntro", "Introducción del caso Gen AI", "long"),
-    ...bilingual("welcome", "Bienvenida", "long"),
-    ...bilingual("errorMessage", "Mensaje de error", "long"),
     ["logo", "Logotipo", "media"], ["backgroundImg", "Fondo", "media"],
   ] },
   websites: { label: "Sitios web", fields: [
