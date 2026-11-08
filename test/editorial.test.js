@@ -3,29 +3,42 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-function editorEvent(routeKey, groups, tokenUse = "access") {
+function editorEvent(routeKey, groups, tokenUse = "access", gatewayGroups = "[admin editor]") {
+  const identity = { sub: "test-user", iss: "test-issuer", token_use: tokenUse };
+  const payload = Buffer.from(JSON.stringify({ ...identity, "cognito:groups": groups })).toString("base64url");
   return {
-    routeKey, body: "{}", requestContext: { authorizer: { jwt: { claims: {
-      token_use: tokenUse, "cognito:groups": groups,
-    } } } },
+    routeKey, body: "{}", headers: { authorization: `Bearer header.${payload}.signature` },
+    requestContext: { authorizer: { jwt: { claims: { ...identity, "cognito:groups": gatewayGroups } } } },
   };
 }
 
 test("administrators inherit editorial access and unrecognized groups or ID tokens do not", async () => {
   const { editor } = require("../lambda/editorial");
   const route = "POST /api/editorial/preview";
-  assert.equal((await editor(editorEvent(route, "[admin]"))).statusCode, 400);
-  assert.equal((await editor(editorEvent(route, "[editor]"))).statusCode, 400);
-  assert.equal((await editor(editorEvent(route, "[administrator]"))).statusCode, 403);
-  assert.equal((await editor(editorEvent(route, "[analytics.admin]"))).statusCode, 403);
-  assert.equal((await editor(editorEvent(route, "[admin]", "id"))).statusCode, 403);
+  assert.equal((await editor(editorEvent(route, ["admin", "editor"]))).statusCode, 400);
+  assert.equal((await editor(editorEvent(route, ["editor"]))).statusCode, 400);
+  assert.equal((await editor(editorEvent(route, ["administrator"]))).statusCode, 403);
+  assert.equal((await editor(editorEvent(route, ["analytics,admin"]))).statusCode, 403);
+  assert.equal((await editor(editorEvent(route, ["admin"], "id"))).statusCode, 403);
 });
 
 test("editors cannot use the administrative settings endpoints", async () => {
   const { editor } = require("../lambda/editorial");
   for (const method of ["GET", "PUT"]) {
-    assert.equal((await editor(editorEvent(`${method} /api/editorial/settings`, "[editor]"))).statusCode, 403);
+    assert.equal((await editor(editorEvent(`${method} /api/editorial/settings`, ["editor"]))).statusCode, 403);
   }
+});
+
+test("portfolio administration uses the exact verified access-token groups", async () => {
+  const { handler } = require("../lambda/portfolio-editor");
+  const route = "GET /api/admin/content";
+  const admin = editorEvent(route, ["admin", "editor"], "access", '["admin","editor"]');
+  assert.equal((await handler(admin)).statusCode, 200);
+  assert.equal((await handler(editorEvent(route, ["editor"], "access", "[admin]"))).statusCode, 403);
+  assert.equal((await handler({ ...admin, requestContext: {} })).statusCode, 403);
+  assert.equal((await handler({ ...admin, headers: { authorization: "Bearer malformed.token.value" } })).statusCode, 403);
+  admin.requestContext.authorizer.jwt.claims.sub = "other-user";
+  assert.equal((await handler(admin)).statusCode, 403);
 });
 
 test("editorial drafts validate bilingual sources and prevent script injection in the rendered copy", () => {

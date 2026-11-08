@@ -99,7 +99,7 @@ def handler(event, _context):
         return response(404, {"error": "Not found."}, event)
     if beta:
         claims = request.get("authorizer", {}).get("jwt", {}).get("claims", {})
-        if not can_use_editorial_assistant(claims):
+        if not can_use_editorial_assistant(event):
             return response(403, {"error": "Editor access required."}, event)
         viewer = f"editor:{claims.get('sub')}"
     else:

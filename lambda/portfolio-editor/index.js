@@ -5,7 +5,7 @@ const { DynamoDBClient, DeleteItemCommand, GetItemCommand, PutItemCommand, Query
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 const { mapMongoDocumentToDynamoItem } = require("../../lib/migration/dynamodb-mapper");
 const { changesFor, collections, mediaId } = require("./schema");
-const { hasGroup } = require("../roles");
+const { groupsFor } = require("../roles");
 
 const db = new DynamoDBClient({});
 const table = process.env.MAIN_TABLE;
@@ -16,7 +16,7 @@ const response = (statusCode, value) => ({
 });
 
 exports.handler = async (event) => {
-  if (!hasGroup(event.requestContext?.authorizer?.jwt?.claims, "admin")) {
+  if (!groupsFor(event).includes("admin")) {
     return response(403, { error: "Administrator access required." });
   }
   try {

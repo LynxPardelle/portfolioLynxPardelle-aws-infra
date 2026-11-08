@@ -6,7 +6,7 @@ const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 const { eligibleForAutopublish, publicArticle, slugPattern, validateDraft } = require("./content");
 const { isTestArticle } = require("../article-visibility");
-const { hasGroup } = require("../roles");
+const { groupsFor } = require("../roles");
 
 const db = new DynamoDBClient({});
 const ssm = new SSMClient({});
@@ -125,9 +125,9 @@ exports.ingest = route(async (event) => {
 });
 
 exports.editor = route(async (event) => {
-  const claims = event.requestContext?.authorizer?.jwt?.claims || {};
-  const admin = hasGroup(claims, "admin");
-  if (!admin && !hasGroup(claims, "editor")) {
+  const groups = groupsFor(event);
+  const admin = groups.includes("admin");
+  if (!admin && !groups.includes("editor")) {
     throw new RequestError(403, "Editor access required.");
   }
   if (["GET /api/editorial/settings", "PUT /api/editorial/settings"].includes(event.routeKey) && !admin) {

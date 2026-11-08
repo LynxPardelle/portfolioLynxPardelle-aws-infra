@@ -1,3 +1,5 @@
+import base64
+import json
 import unittest
 
 from policy import can_use_editorial_assistant, eligible_sources, is_public_article, parse_answer, reserve_microusd
@@ -10,11 +12,20 @@ class AssistantPolicyTests(unittest.TestCase):
         self.assertTrue(is_public_article({"show": True, "tags": "testing"}))
 
     def test_editorial_assistant_requires_an_access_token_with_an_exact_role(self):
-        for groups in ("[admin]", "[other, editor]", ["admin"]):
-            self.assertTrue(can_use_editorial_assistant({"token_use": "access", "cognito:groups": groups}))
-        for groups in ("[analytics.admin]", "[editorial]", None):
-            self.assertFalse(can_use_editorial_assistant({"token_use": "access", "cognito:groups": groups}))
-        self.assertFalse(can_use_editorial_assistant({"token_use": "id", "cognito:groups": "[admin]"}))
+        def event(groups, token_use="access", subject="test-user"):
+            identity = {"sub": "test-user", "iss": "test-issuer", "token_use": token_use}
+            payload = base64.urlsafe_b64encode(json.dumps({**identity, "cognito:groups": groups}).encode()).decode().rstrip("=")
+            return {
+                "headers": {"authorization": f"Bearer header.{payload}.signature"},
+                "requestContext": {"authorizer": {"jwt": {"claims": {**identity, "sub": subject, "cognito:groups": "[admin editor]"}}}},
+            }
+
+        self.assertTrue(can_use_editorial_assistant(event(["admin", "editor"])))
+        self.assertTrue(can_use_editorial_assistant(event(["editor"])))
+        self.assertFalse(can_use_editorial_assistant(event(["analytics,admin"])))
+        self.assertFalse(can_use_editorial_assistant(event(["admin"], "id")))
+        self.assertFalse(can_use_editorial_assistant(event(["admin"], subject="other-user")))
+        self.assertFalse(can_use_editorial_assistant({"headers": event(["admin"])["headers"]}))
 
     def test_retrieval_rejects_deleted_stale_or_foreign_sources(self):
         results = [

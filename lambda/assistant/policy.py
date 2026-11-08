@@ -1,3 +1,4 @@
+import base64
 import json
 import re
 
@@ -19,13 +20,26 @@ def is_public_article(article):
                         for tag in tags if isinstance(tag, str)))
 
 
-def can_use_editorial_assistant(claims):
-    groups = claims.get("cognito:groups", "")
-    if isinstance(groups, str):
-        groups = [group.strip() for group in groups.removeprefix("[").removesuffix("]").split(",")]
-    if not isinstance(groups, list):
+def can_use_editorial_assistant(event):
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+    if claims.get("token_use") != "access" or not claims.get("sub") or not claims.get("iss"):
         return False
-    return claims.get("token_use") == "access" and ("editor" in groups or "admin" in groups)
+    header = (event.get("headers") or {}).get("authorization") or ""
+    token = re.fullmatch(r"Bearer [A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+", header, re.IGNORECASE)
+    if not token:
+        return False
+    # Use the original group array from the bearer token already validated by API Gateway.
+    encoded = token.group(1)
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(payload, dict) or payload.get("token_use") != "access":
+        return False
+    if payload.get("sub") != claims["sub"] or payload.get("iss") != claims["iss"]:
+        return False
+    groups = payload.get("cognito:groups")
+    return isinstance(groups, list) and ("editor" in groups or "admin" in groups)
 
 
 def eligible_sources(results, revisions, lang):
