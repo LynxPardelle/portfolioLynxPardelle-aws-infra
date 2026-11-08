@@ -53,3 +53,15 @@ test("automation accepts only eligible recent drafts for autopublishing", () => 
   assert.equal(eligibleForAutopublish({ ...draft, eventDate: "2026-10-01" }, now), false);
   assert.equal(eligibleForAutopublish({ ...draft, origin: "manual" }, now), false);
 });
+
+test("test taxonomy stays private even when the article would otherwise be visible", () => {
+  const { validateDraft, publicArticle, isPublicArticle } = require("../lambda/editorial/content");
+  const base = { slug: "muestra", category: "test", subcategories: ["control-editorial"], tags: ["test"],
+    es: { title: "Muestra", markdown: "Vista privada." } };
+  const draft = validateDraft(base);
+  assert.deepEqual(draft.subcategories, ["control-editorial"]);
+  assert.deepEqual(draft.tags, ["test"]);
+  assert.equal(isPublicArticle(publicArticle(draft, "2026-11-07T12:00:00Z")), false);
+  assert.equal(isPublicArticle({ show: true, tags: "angular, TEST" }), false);
+  assert.equal(isPublicArticle({ show: true, tags: "testing, angular" }), true);
+});

@@ -5,6 +5,8 @@ const { DynamoDBClient, GetItemCommand, PutItemCommand, ScanCommand, TransactWri
 const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 const { eligibleForAutopublish, publicArticle, slugPattern, validateDraft } = require("./content");
+const { isTestArticle } = require("../article-visibility");
+const { hasGroup } = require("../roles");
 
 const db = new DynamoDBClient({});
 const ssm = new SSMClient({});
@@ -61,6 +63,7 @@ function weekKey(now) {
 }
 
 async function publish(draft, policy, now, automatic) {
+  if (isTestArticle(draft)) throw new RequestError(409, "Test articles are private.");
   if (draft.status === "published") return draft;
   const date = now.toISOString();
   const eligible = eligibleForAutopublish(draft, now);
@@ -123,9 +126,8 @@ exports.ingest = route(async (event) => {
 
 exports.editor = route(async (event) => {
   const claims = event.requestContext?.authorizer?.jwt?.claims || {};
-  const groups = String(claims["cognito:groups"] || "").replace(/^\[|\]$/g, "").split(",").map((group) => group.trim());
-  const admin = groups.includes("admin");
-  if (claims.token_use !== "access" || (!admin && !groups.includes("editor"))) {
+  const admin = hasGroup(claims, "admin");
+  if (!admin && !hasGroup(claims, "editor")) {
     throw new RequestError(403, "Editor access required.");
   }
   if (["GET /api/editorial/settings", "PUT /api/editorial/settings"].includes(event.routeKey) && !admin) {
@@ -136,11 +138,13 @@ exports.editor = route(async (event) => {
   }
   if (event.routeKey === "GET /api/editorial/drafts") {
     const policy = await settings();
-    return response(200, { drafts: await listDrafts(), policy });
+    const items = await listDrafts();
+    return response(200, { drafts: admin ? items : items.filter((draft) => !isTestArticle(draft)), policy });
   }
   const payload = body(event);
   if (event.routeKey === "POST /api/editorial/preview") {
     const draft = draftInput(payload, false);
+    if (isTestArticle(draft) && !admin) throw new RequestError(403, "Administrator access required for test articles.");
     const rendered = publicArticle(draft, new Date().toISOString());
     return response(200, { es: rendered.intro, en: rendered.introEng });
   }
@@ -155,21 +159,40 @@ exports.editor = route(async (event) => {
   if (!slug || slug.length > 80 || !slugPattern.test(slug)) throw new RequestError(400, "Invalid slug.");
   const pk = `DRAFT#${slug}`;
   const existing = await read(drafts, { pk });
+  if (existing && isTestArticle(existing) && !admin) throw new RequestError(403, "Administrator access required for test articles.");
   if ((existing?.version || 0) !== payload.version) throw new RequestError(409, "The draft has changed. Refresh it first.");
   const now = new Date();
   if (event.routeKey === "PUT /api/editorial/drafts/{slug}") {
     const input = draftInput({ ...payload, slug }, existing?.origin === "desktop");
     const next = { ...existing, ...input, pk, origin: existing?.origin || "manual", status: "draft", version: payload.version + 1, updatedAt: now.toISOString() };
-    await db.send(new PutItemCommand(versionedPut(drafts, next, payload.version)));
+    const test = isTestArticle(input);
+    if (test && !admin) throw new RequestError(403, "Administrator access required for test articles.");
+    if (test && existing?.publishedAt) {
+      delete next.publishedAt;
+      await db.send(new TransactWriteItemsCommand({ TransactItems: [
+        { Put: versionedPut(drafts, next, payload.version) }, articleDeletion(slug),
+      ] }));
+    } else {
+      await db.send(new PutItemCommand(versionedPut(drafts, next, payload.version)));
+    }
     return response(200, next);
   }
   if (!existing) throw new RequestError(404, "Draft not found.");
+  if (event.routeKey === "DELETE /api/editorial/drafts/{slug}") {
+    if (!admin) throw new RequestError(403, "Administrator access required.");
+    await db.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Delete: { TableName: drafts, Key: attrs({ pk }), ConditionExpression: "#v = :v",
+        ExpressionAttributeNames: { "#v": "version" }, ExpressionAttributeValues: attrs({ ":v": payload.version }) } },
+      articleDeletion(slug),
+    ] }));
+    return response(200, { deleted: true });
+  }
   const action = event.pathParameters.action;
   if (action === "publish") return response(200, await publish(existing, await settings(), now, false));
   if (!["withdraw", "reject"].includes(action)) throw new RequestError(404, "Unknown action.");
   const next = { ...existing, status: action === "reject" ? "rejected" : "withdrawn", version: existing.version + 1, updatedAt: now.toISOString() };
   const operations = [{ Put: versionedPut(drafts, next, existing.version) }];
-  if (action === "withdraw" || existing.publishedAt) operations.push({ Delete: { TableName: articles, Key: attrs({ pk: `ARTICLE#editorial-${slug}`, sk: "METADATA" }) } });
+  if (action === "withdraw" || existing.publishedAt) operations.push(articleDeletion(slug));
   if (action === "reject" && existing.origin === "desktop") {
     const policy = await settings();
     operations.push({ Put: versionedPut(drafts, { ...policy, streak: 0, auto: false, version: policy.version + 1 }, policy.version) });
@@ -177,6 +200,10 @@ exports.editor = route(async (event) => {
   await db.send(new TransactWriteItemsCommand({ TransactItems: operations }));
   return response(200, next);
 });
+
+function articleDeletion(slug) {
+  return { Delete: { TableName: articles, Key: attrs({ pk: `ARTICLE#editorial-${slug}`, sk: "METADATA" }) } };
+}
 
 exports.autopublish = async () => {
   const policy = await settings();

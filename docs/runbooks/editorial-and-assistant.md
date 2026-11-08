@@ -13,7 +13,12 @@ El frontend Angular y este repositorio contienen los componentes activos. El rep
 
 - `/admin/blog` y `/admin/settings` comparten el cliente Cognito, el flujo OAuth con PKCE y la sesión Angular en memoria. `/admin/blog` también recibe el retorno de Cognito. El enlace antiguo `/auth` abre la misma área. Cada entorno mantiene su propio pool.
 - `editor` gestiona borradores, publicaciones y la beta del asistente. `admin` hereda ese acceso y configura la publicación automática. API Gateway valida el token y cada Lambda comprueba el grupo para las operaciones que atiende.
-- Al incorporar edición para otra colección del portafolio, añadir su pantalla bajo `/admin` y su API de escritura autenticada con el mismo autorizador. Definir permisos por colección, validar el contenido y probar que una cuenta `editor` recibe 403 al escribir fuera del blog. El CV y los casos se mantienen versionados en el frontend. La API pública de obras, sitios y música sirve lecturas.
+- `/admin/content` permite al administrador editar el titular y el resumen profesional, las introducciones de los casos, el logotipo y el fondo. También permite crear, editar, ordenar y eliminar sitios, obras, videos, álbumes y canciones. Los campos multimedia seleccionan un archivo de la biblioteca de AWS. El detalle del historial profesional del CV se mantiene versionado en el frontend.
+- Las escrituras van a `/api/admin/content` con el mismo autorizador JWT. La Lambda comprueba el grupo `admin`, acepta campos definidos por colección y rechaza versiones anteriores del registro. La API pública conserva su acceso de lectura.
+
+## Pruebas editoriales privadas
+
+La categoría `test` o una etiqueta exacta `test` o `prueba` restringe el artículo a administradores. Los administradores pueden guardar, previsualizar y eliminar esos borradores desde el editor. AWS bloquea su publicación y excluye esas marcas en las lecturas públicas y en el asistente. Si un artículo publicado se convierte en prueba, guardar retira la versión pública en la misma operación.
 
 ## Automatización de Desktop
 

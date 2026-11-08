@@ -1,8 +1,9 @@
 "use strict";
 
 const MarkdownIt = require("markdown-it");
+const { isPublicArticle, isTestArticle } = require("../article-visibility");
 const markdown = new MarkdownIt({ html: false, linkify: false });
-const categories = new Set(["technology", "art", "other"]);
+const categories = new Set(["technology", "art", "other", "test"]);
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function httpsUrl(value) {
@@ -24,6 +25,14 @@ function language(value) {
   return { title: value.title.trim(), markdown: value.markdown.trim() };
 }
 
+function taxonomy(values = []) {
+  if (!Array.isArray(values) || values.length > 12 ||
+      !values.every((value) => typeof value === "string" && value.length <= 40 && slugPattern.test(value))) {
+    throw new Error("Use up to twelve lowercase taxonomy labels with letters, digits or hyphens.");
+  }
+  return [...new Set(values)];
+}
+
 function validateDraft(input, automated = false) {
   if (!input || typeof input.slug !== "string" || input.slug.length > 80 || !slugPattern.test(input.slug)) {
     throw new Error("Use a lowercase slug of up to 80 letters, digits and hyphens.");
@@ -42,15 +51,16 @@ function validateDraft(input, automated = false) {
     throw new Error("The event date must use YYYY-MM-DD.");
   }
   if (!es && !en) throw new Error("Provide at least one language.");
-  if (automated && (input.category !== "technology" || !es || !en || uniqueSources.length < 2 || !eventDate)) {
+  if (automated && (isTestArticle(input) || input.category !== "technology" || !es || !en || uniqueSources.length < 2 || !eventDate)) {
     throw new Error("Automated drafts require technology, both languages, an event date and two distinct sources.");
   }
-  return { slug: input.slug, category: input.category, es, en, sources: uniqueSources, eventDate };
+  return { slug: input.slug, category: input.category, subcategories: taxonomy(input.subcategories),
+    tags: taxonomy(input.tags), es, en, sources: uniqueSources, eventDate };
 }
 
 function eligibleForAutopublish(draft, now = new Date()) {
   const age = Date.parse(now.toISOString().slice(0, 10)) - Date.parse(draft.eventDate);
-  return draft.origin === "desktop" && draft.category === "technology" && age >= 0 && age <= 7 * 86400000;
+  return !isTestArticle(draft) && draft.origin === "desktop" && draft.category === "technology" && age >= 0 && age <= 7 * 86400000;
 }
 
 function publicArticle(draft, now) {
@@ -62,11 +72,12 @@ function publicArticle(draft, now) {
     intro: markdown.render((draft.es || draft.en).markdown),
     introEng: markdown.render((draft.en || draft.es).markdown),
     langs: [draft.es && "es", draft.en && "en"].filter(Boolean),
-    editorial: { category: draft.category, sources: draft.sources, eventDate: draft.eventDate,
+    editorial: { category: draft.category, subcategories: draft.subcategories || [], tags: draft.tags || [],
+      sources: draft.sources, eventDate: draft.eventDate,
       revision: draft.version, origin: draft.origin || "manual" },
-    create_at: draft.publishedAt || now, show: true, tags: draft.category,
+    create_at: draft.publishedAt || now, show: !isTestArticle(draft), tags: (draft.tags || []).join(", ") || draft.category,
     sections: [], coverImg: [], subCats: [], insertions: [],
   };
 }
 
-module.exports = { validateDraft, eligibleForAutopublish, publicArticle, slugPattern };
+module.exports = { validateDraft, eligibleForAutopublish, publicArticle, isPublicArticle, slugPattern };

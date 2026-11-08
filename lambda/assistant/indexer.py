@@ -6,7 +6,7 @@ from html.parser import HTMLParser
 import boto3
 from botocore.exceptions import ClientError
 
-from policy import SLUG
+from policy import SLUG, is_public_article
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-agent")
@@ -49,7 +49,7 @@ def get_articles():
     options = {"FilterExpression": Attr("entityType").eq("articles"), "ConsistentRead": True}
     while True:
         page = articles.scan(**options)
-        yield from (item for item in page.get("Items", []) if item.get("show") is not False)
+        yield from (item for item in page.get("Items", []) if is_public_article(item))
         if "LastEvaluatedKey" not in page:
             return
         options["ExclusiveStartKey"] = page["LastEvaluatedKey"]

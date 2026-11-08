@@ -8,6 +8,7 @@ const {
   ScanCommand,
 } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
+const { isPublicArticle } = require("../article-visibility");
 
 let client = new DynamoDBClient({});
 const entityIndexName = "ByEntity";
@@ -301,7 +302,7 @@ async function getArticleSubCategories() {
 
 async function getArticles(pathname) {
   const params = parseArticleListPath(pathname);
-  const allArticles = (await scanByEntity(tables.articles, "articles")).filter((article) => article.show !== false);
+  const allArticles = (await scanByEntity(tables.articles, "articles")).filter(isPublicArticle);
   const filtered = await filterArticles(allArticles, params);
   const sorted = sortDocuments(filtered, params.sort);
   const total = sorted.length;
@@ -333,7 +334,7 @@ async function getArticle(id) {
     article = candidates.find((candidate) => candidate.urltitle === id || candidate.slug === id);
   }
 
-  if (!article || article.show === false) {
+  if (!article || !isPublicArticle(article)) {
     return json(404, {
       status: "error",
       message: "Error al devolver el artículo.",
@@ -376,6 +377,7 @@ function articleMatchesSearch(article, expression, rootAccess) {
     article.outro,
     article.outroEng,
     article.tags,
+    ...asArray(article.editorial?.subcategories),
     article.urltitle,
     article.cat?.title,
     article.cat?.titleEng,
@@ -634,6 +636,7 @@ function toPublicDocument(item, options = {}) {
     "entityType",
     "legacyMongoId",
     "migrationBatchId",
+    "editRevision",
   ]) {
     delete publicDocument[internalField];
   }

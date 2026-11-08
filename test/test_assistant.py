@@ -1,9 +1,14 @@
 import unittest
 
-from policy import can_use_editorial_assistant, eligible_sources, parse_answer, reserve_microusd
+from policy import can_use_editorial_assistant, eligible_sources, is_public_article, parse_answer, reserve_microusd
 
 
 class AssistantPolicyTests(unittest.TestCase):
+    def test_test_taxonomy_never_enters_the_public_corpus(self):
+        self.assertFalse(is_public_article({"show": True, "editorial": {"category": "test"}}))
+        self.assertFalse(is_public_article({"show": True, "tags": "Angular, TEST"}))
+        self.assertTrue(is_public_article({"show": True, "tags": "testing"}))
+
     def test_editorial_assistant_requires_an_access_token_with_an_exact_role(self):
         for groups in ("[admin]", "[other, editor]", ["admin"]):
             self.assertTrue(can_use_editorial_assistant({"token_use": "access", "cognito:groups": groups}))

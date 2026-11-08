@@ -10,7 +10,7 @@ from time import time
 import boto3
 from botocore.config import Config
 
-from policy import SLUG, can_use_editorial_assistant, eligible_sources, parse_answer, reserve_microusd
+from policy import SLUG, can_use_editorial_assistant, eligible_sources, is_public_article, parse_answer, reserve_microusd
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -62,7 +62,7 @@ def reserve(viewer, salt):
 
 def article_revision(slug):
     item = documents.get_item(Key={"pk": f"ARTICLE#{slug}", "sk": "METADATA"}, ConsistentRead=True).get("Item")
-    if item and item.get("show") is not False:
+    if item and is_public_article(item):
         return str(item.get("editorial", {}).get("revision", "legacy"))
     return None
 

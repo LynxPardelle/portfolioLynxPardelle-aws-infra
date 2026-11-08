@@ -5,6 +5,20 @@ import re
 SLUG = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,100}$")
 
 
+def is_public_article(article):
+    editorial = article.get("editorial") or {}
+    category = editorial.get("category") or article.get("category") or article.get("cat") or article.get("articleCat") or ""
+    if isinstance(category, dict):
+        category = category.get("slug") or category.get("title") or ""
+    tags = []
+    for value in (editorial.get("tags"), article.get("tags")):
+        tags.extend(value if isinstance(value, list) else [value])
+    labels = {"test", "prueba"}
+    return (article.get("show") is not False and str(category).strip().lower() not in labels
+            and not any(labels.intersection(re.split(r"[,;\s#]+", tag.lower()))
+                        for tag in tags if isinstance(tag, str)))
+
+
 def can_use_editorial_assistant(claims):
     groups = claims.get("cognito:groups", "")
     if isinstance(groups, str):
