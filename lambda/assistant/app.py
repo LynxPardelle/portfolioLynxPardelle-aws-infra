@@ -104,9 +104,9 @@ def handler(event, _context):
             return response(403, {"error": "Editor access required."}, event)
         viewer = f"editor:{claims.get('sub')}"
     else:
-        address = (event.get("headers") or {}).get("cloudfront-viewer-address", "")
+        address = (event.get("headers") or {}).get("x-portfolio-viewer-ip", "")
         try:
-            ip = ipaddress.ip_address(address.rsplit(":", 1)[0].strip("[]"))
+            ip = ipaddress.ip_address(address)
             viewer = str(ip if ip.version == 4 else ipaddress.ip_network(f"{ip}/64", strict=False))
         except ValueError:
             return response(403, {"error": "Missing CloudFront viewer address."}, event)
