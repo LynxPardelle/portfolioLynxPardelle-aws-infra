@@ -5,6 +5,15 @@ import re
 SLUG = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,100}$")
 
 
+def can_use_editorial_assistant(claims):
+    groups = claims.get("cognito:groups", "")
+    if isinstance(groups, str):
+        groups = [group.strip() for group in groups.removeprefix("[").removesuffix("]").split(",")]
+    if not isinstance(groups, list):
+        return False
+    return claims.get("token_use") == "access" and ("editor" in groups or "admin" in groups)
+
+
 def eligible_sources(results, revisions, lang):
     sources = []
     for hit in results:

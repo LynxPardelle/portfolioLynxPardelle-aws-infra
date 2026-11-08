@@ -4,14 +4,13 @@ import json
 import logging
 import os
 import ipaddress
-import re
 from datetime import datetime, timezone
 from time import time
 
 import boto3
 from botocore.config import Config
 
-from policy import SLUG, eligible_sources, parse_answer, reserve_microusd
+from policy import SLUG, can_use_editorial_assistant, eligible_sources, parse_answer, reserve_microusd
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -100,7 +99,7 @@ def handler(event, _context):
         return response(404, {"error": "Not found."}, event)
     if beta:
         claims = request.get("authorizer", {}).get("jwt", {}).get("claims", {})
-        if claims.get("token_use") != "access" or "editor" not in re.split(r"[^a-zA-Z0-9_-]+", str(claims.get("cognito:groups", ""))):
+        if not can_use_editorial_assistant(claims):
             return response(403, {"error": "Editor access required."}, event)
         viewer = f"editor:{claims.get('sub')}"
     else:

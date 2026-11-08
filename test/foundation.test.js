@@ -172,6 +172,16 @@ test("ApiStack creates read-only public Lambda and HTTP API", () => {
   template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
     RouteKey: "GET /api/editorial/drafts", AuthorizationType: "JWT", AuthorizationScopes: ["openid"],
   });
+  for (const method of ["GET", "PUT"]) {
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: `${method} /api/editorial/settings`, AuthorizationType: "JWT", AuthorizationScopes: ["openid"],
+    });
+  }
+  template.resourceCountIs("AWS::Cognito::UserPool", 1);
+  template.resourceCountIs("AWS::Cognito::UserPoolClient", 1);
+  for (const groupName of ["admin", "editor"]) {
+    template.hasResourceProperties("AWS::Cognito::UserPoolGroup", { GroupName: groupName });
+  }
   template.hasResourceProperties("AWS::Cognito::UserPool", { MfaConfiguration: "ON", EnabledMfas: ["SOFTWARE_TOKEN_MFA"] });
   assert.equal(Object.keys(template.findResources("AWS::ApiGatewayV2::DomainName")).length, 0);
 });

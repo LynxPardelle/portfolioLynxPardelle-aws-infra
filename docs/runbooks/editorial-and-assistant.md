@@ -5,9 +5,15 @@ El frontend Angular y este repositorio contienen los componentes activos. El rep
 ## Despliegue y alta del editor
 
 1. Ejecutar las pruebas de Node y Python, empaquetar con `python scripts/package-assistant.py` y sintetizar CDK. En Windows se puede pasar la ruta de `uv.exe` al script para usar los certificados del sistema. Promover por `dev`, `tst` y `prod` con el artefacto Angular del mismo entorno.
-2. Usar el `EditorialUserPoolId` de cada stack API para crear la cuenta del propietario con `admin-create-user` y añadirla al grupo `editor`. El propietario completa el cambio de contraseña y enrola el segundo factor con una aplicación TOTP.
+2. Usar el `EditorialUserPoolId` de cada stack API para crear la cuenta del propietario con `admin-create-user` y añadirla al grupo `admin`. Abrir `/admin` en el navegador, iniciar sesión con el correo y la contraseña temporal de la invitación, elegir una contraseña definitiva y registrar el QR de Cognito en una aplicación TOTP. Las cuentas que solo gestionan el blog pertenecen al grupo `editor`.
 3. En Windows, ejecutar `pwsh -File scripts/editorial/Set-IngestCredential.ps1 -Environment prod`. La credencial se cifra para el usuario local mediante DPAPI. Ejecutar el mismo comando rota la credencial y revoca la anterior.
 4. Probar un envío privado con `pwsh -File scripts/editorial/Send-Draft.ps1 -Environment dev -Path <draft.json>`. Volver a enviarlo y comprobar que aparece un solo borrador en `/admin/blog`. Publicar una revisión manual de prueba y retirarla después de confirmar que el enlace público funciona.
+
+## Sesión compartida y próximos módulos administrativos
+
+- `/admin/blog` y `/admin/settings` comparten el cliente Cognito, el flujo OAuth con PKCE y la sesión Angular en memoria. `/admin/blog` también recibe el retorno de Cognito. El enlace antiguo `/auth` abre la misma área. Cada entorno mantiene su propio pool.
+- `editor` gestiona borradores, publicaciones y la beta del asistente. `admin` hereda ese acceso y configura la publicación automática. API Gateway valida el token y cada Lambda comprueba el grupo para las operaciones que atiende.
+- Al incorporar edición para otra colección del portafolio, añadir su pantalla bajo `/admin` y su API de escritura autenticada con el mismo autorizador. Definir permisos por colección, validar el contenido y probar que una cuenta `editor` recibe 403 al escribir fuera del blog. El CV y los casos se mantienen versionados en el frontend. La API pública de obras, sitios y música sirve lecturas.
 
 ## Automatización de Desktop
 

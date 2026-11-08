@@ -1,9 +1,16 @@
 import unittest
 
-from policy import eligible_sources, parse_answer, reserve_microusd
+from policy import can_use_editorial_assistant, eligible_sources, parse_answer, reserve_microusd
 
 
 class AssistantPolicyTests(unittest.TestCase):
+    def test_editorial_assistant_requires_an_access_token_with_an_exact_role(self):
+        for groups in ("[admin]", "[other, editor]", ["admin"]):
+            self.assertTrue(can_use_editorial_assistant({"token_use": "access", "cognito:groups": groups}))
+        for groups in ("[analytics.admin]", "[editorial]", None):
+            self.assertFalse(can_use_editorial_assistant({"token_use": "access", "cognito:groups": groups}))
+        self.assertFalse(can_use_editorial_assistant({"token_use": "id", "cognito:groups": "[admin]"}))
+
     def test_retrieval_rejects_deleted_stale_or_foreign_sources(self):
         results = [
             {"score": .8, "metadata": {"slug": "current", "revision": "2", "lang": "es"}, "content": {"text": "Expected"}},

@@ -3,6 +3,31 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+function editorEvent(routeKey, groups, tokenUse = "access") {
+  return {
+    routeKey, body: "{}", requestContext: { authorizer: { jwt: { claims: {
+      token_use: tokenUse, "cognito:groups": groups,
+    } } } },
+  };
+}
+
+test("administrators inherit editorial access and unrecognized groups or ID tokens do not", async () => {
+  const { editor } = require("../lambda/editorial");
+  const route = "POST /api/editorial/preview";
+  assert.equal((await editor(editorEvent(route, "[admin]"))).statusCode, 400);
+  assert.equal((await editor(editorEvent(route, "[editor]"))).statusCode, 400);
+  assert.equal((await editor(editorEvent(route, "[administrator]"))).statusCode, 403);
+  assert.equal((await editor(editorEvent(route, "[analytics.admin]"))).statusCode, 403);
+  assert.equal((await editor(editorEvent(route, "[admin]", "id"))).statusCode, 403);
+});
+
+test("editors cannot use the administrative settings endpoints", async () => {
+  const { editor } = require("../lambda/editorial");
+  for (const method of ["GET", "PUT"]) {
+    assert.equal((await editor(editorEvent(`${method} /api/editorial/settings`, "[editor]"))).statusCode, 403);
+  }
+});
+
 test("editorial drafts validate bilingual sources and prevent script injection in the rendered copy", () => {
   const { validateDraft, publicArticle } = require("../lambda/editorial/content");
   const input = {

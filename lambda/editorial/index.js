@@ -123,8 +123,16 @@ exports.ingest = route(async (event) => {
 
 exports.editor = route(async (event) => {
   const claims = event.requestContext?.authorizer?.jwt?.claims || {};
-  if (claims.token_use !== "access" || !String(claims["cognito:groups"] || "").split(/[^a-zA-Z0-9_-]+/).includes("editor")) {
+  const groups = String(claims["cognito:groups"] || "").replace(/^\[|\]$/g, "").split(",").map((group) => group.trim());
+  const admin = groups.includes("admin");
+  if (claims.token_use !== "access" || (!admin && !groups.includes("editor"))) {
     throw new RequestError(403, "Editor access required.");
+  }
+  if (["GET /api/editorial/settings", "PUT /api/editorial/settings"].includes(event.routeKey) && !admin) {
+    throw new RequestError(403, "Administrator access required.");
+  }
+  if (event.routeKey === "GET /api/editorial/settings") {
+    return response(200, await settings());
   }
   if (event.routeKey === "GET /api/editorial/drafts") {
     const policy = await settings();
