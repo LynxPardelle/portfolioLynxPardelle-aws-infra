@@ -29,6 +29,33 @@ test("editors cannot use the administrative settings endpoints", async () => {
   }
 });
 
+test("the private blog reader lists only tests and reserves both routes for admins", async (t) => {
+  const { DynamoDBClient, GetItemCommand } = require("@aws-sdk/client-dynamodb");
+  const { marshall } = require("@aws-sdk/util-dynamodb");
+  const { editor } = require("../lambda/editorial");
+  const sample = { slug: "muestra", category: "test", updatedAt: "2026-11-08", tags: ["test"],
+    es: { title: "Muestra", markdown: "<script>private</script>" } };
+  const ordinary = { ...sample, slug: "ordinary", category: "art", tags: [] };
+  const db = t.mock.method(DynamoDBClient.prototype, "send", async (command) => command instanceof GetItemCommand
+    ? { Item: marshall(command.input.Key.pk.S.endsWith("#muestra") ? sample : ordinary) }
+    : { Items: [marshall(sample), marshall(ordinary)] });
+  const list = "GET /api/editorial/test-articles";
+  const detail = `${list}/{slug}`;
+  for (const route of [list, detail]) {
+    assert.equal((await editor(editorEvent(route, ["editor"]))).statusCode, 403);
+    assert.equal((await editor(editorEvent(route, []))).statusCode, 403);
+  }
+  assert.equal(db.mock.callCount(), 0);
+  const response = await editor(editorEvent(list, ["admin"]));
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["cache-control"], "no-store");
+  assert.deepEqual(JSON.parse(response.body).articles.map(({ slug }) => slug), ["muestra"]);
+  assert.doesNotMatch(response.body, /markdown|script/);
+  const read = (slug) => editor({ ...editorEvent(detail, ["admin"]), pathParameters: { slug } });
+  assert.equal((await read("ordinary")).statusCode, 404);
+  assert.match(JSON.parse((await read("muestra")).body).article.html, /&lt;script&gt;/);
+});
+
 test("portfolio administration uses the exact verified access-token groups", async () => {
   const { handler } = require("../lambda/portfolio-editor");
   const route = "GET /api/admin/content";

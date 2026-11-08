@@ -47,6 +47,13 @@ async function listDrafts() {
   return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+function testArticleSummary(draft) {
+  return {
+    slug: draft.slug, title: (draft.es || draft.en).title, titleEng: (draft.en || draft.es).title,
+    category: draft.category, tags: draft.tags || [], subcategories: draft.subcategories || [],
+  };
+}
+
 async function settings() {
   return await read(drafts, { pk: settingsKey }) || { pk: settingsKey, streak: 0, auto: false, version: 0 };
 }
@@ -129,6 +136,18 @@ exports.editor = route(async (event) => {
   const admin = groups.includes("admin");
   if (!admin && !groups.includes("editor")) {
     throw new RequestError(403, "Editor access required.");
+  }
+  if (event.routeKey === "GET /api/editorial/test-articles" || event.routeKey === "GET /api/editorial/test-articles/{slug}") {
+    if (!admin) throw new RequestError(403, "Administrator access required.");
+    if (event.routeKey === "GET /api/editorial/test-articles") {
+      return response(200, { articles: (await listDrafts()).filter(isTestArticle).map(testArticleSummary) });
+    }
+    const slug = event.pathParameters?.slug;
+    if (!slug || slug.length > 80 || !slugPattern.test(slug)) throw new RequestError(404, "Test article not found.");
+    const draft = await read(drafts, { pk: `DRAFT#${slug}` });
+    if (!draft || !isTestArticle(draft)) throw new RequestError(404, "Test article not found.");
+    const rendered = publicArticle(draft, draft.updatedAt);
+    return response(200, { article: { ...testArticleSummary(draft), html: rendered.intro, htmlEng: rendered.introEng } });
   }
   if (["GET /api/editorial/settings", "PUT /api/editorial/settings"].includes(event.routeKey) && !admin) {
     throw new RequestError(403, "Administrator access required.");
