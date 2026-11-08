@@ -9,3 +9,5 @@ coverage/
 Thumbs.db
 .aws-sam/
 .cdk.staging/
+.assistant-build/
+__pycache__/

@@ -23,8 +23,19 @@ jobs:
       - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: lambda/assistant/requirements.lock
+
       - run: npm ci
+      - run: PYTHONPATH=lambda/assistant python -m unittest discover -s test -p test_assistant.py
+      - run: python scripts/package-assistant.py
       - run: npm test
       - run: npm run validate
+        env:
+          ASSISTANT_ENABLED: '1'
+          ASSISTANT_EDGE: '1'

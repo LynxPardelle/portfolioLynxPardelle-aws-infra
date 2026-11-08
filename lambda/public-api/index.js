@@ -301,7 +301,7 @@ async function getArticleSubCategories() {
 
 async function getArticles(pathname) {
   const params = parseArticleListPath(pathname);
-  const allArticles = await scanByEntity(tables.articles, "articles");
+  const allArticles = (await scanByEntity(tables.articles, "articles")).filter((article) => article.show !== false);
   const filtered = await filterArticles(allArticles, params);
   const sorted = sortDocuments(filtered, params.sort);
   const total = sorted.length;
@@ -333,7 +333,7 @@ async function getArticle(id) {
     article = candidates.find((candidate) => candidate.urltitle === id || candidate.slug === id);
   }
 
-  if (!article) {
+  if (!article || article.show === false) {
     return json(404, {
       status: "error",
       message: "Error al devolver el artículo.",

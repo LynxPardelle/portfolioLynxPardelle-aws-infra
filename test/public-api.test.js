@@ -13,6 +13,15 @@ const test = require("node:test");
 const { marshall } = require("@aws-sdk/util-dynamodb");
 const { handler, __test } = require("../lambda/public-api/index");
 
+test("an explicitly hidden article is inaccessible even by its direct identifier", async (t) => {
+  t.after(() => __test.resetDynamoClientForTest());
+  __test.setDynamoClientForTest({
+    send: async () => ({ Item: marshall({ legacyMongoId: "hidden", show: false }) }),
+  });
+  const response = await handler({ rawPath: "/api/article/article/hidden" });
+  assert.equal(response.statusCode, 404);
+});
+
 test("article list returns success with an empty collection instead of 404", async (t) => {
   t.after(() => __test.resetDynamoClientForTest());
 

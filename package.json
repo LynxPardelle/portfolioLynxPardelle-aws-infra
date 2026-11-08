@@ -21,17 +21,19 @@
     "validate": "npm run synth"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.828.0",
-    "@aws-sdk/util-dynamodb": "^3.828.0",
-    "aws-cdk-lib": "2.260.0",
+    "@aws-sdk/client-dynamodb": "^3.1164.0",
+    "@aws-sdk/client-ssm": "^3.1164.0",
+    "@aws-sdk/util-dynamodb": "^3.996.9",
+    "aws-cdk-lib": "^2.275.0",
     "bson": "^7.3.0",
-    "constructs": "10.6.0"
+    "constructs": "^10.8.1",
+    "markdown-it": "^15.0.3"
   },
   "devDependencies": {
-    "aws-cdk": "2.1128.0",
-    "esbuild": "^0.25.5"
+    "aws-cdk": "^2.1148.0",
+    "esbuild": "^0.28.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24.15.0"
   }
 }

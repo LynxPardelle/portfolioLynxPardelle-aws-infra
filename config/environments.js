@@ -9,6 +9,7 @@ const environmentDefaults = {
   hostedZoneName: "lynxpardelle.com",
   hostedZoneId: "Z05088763QG63CC5SE7PN",
   assetDomainName: "assets.lynxpardelle.com",
+  assistantEnabled: process.env.ASSISTANT_ENABLED === "1",
   currentAssetsBucketName: "lynx-portfolio",
   currentAssetsDistributionId: "EPT5BBK0QX89M",
 };
@@ -21,7 +22,7 @@ function buildFrontendHostingConfig(environmentName) {
     "";
   return {
     architecture: "cloudfront-s3-lambda-ssr",
-    apiBaseUrl: "https://api.lynxpardelle.com",
+    apiBaseUrl: ({ dev: "https://6rz4b6ydmh.execute-api.us-east-1.amazonaws.com", tst: "https://nnpwkjfa56.execute-api.us-east-1.amazonaws.com", prod: "https://api.lynxpardelle.com" })[environmentName],
     artifactBucketName: environmentDefaults.currentAssetsBucketName,
     artifactBasePrefix,
     staticOriginDomainName: environmentDefaults.assetDomainName,
@@ -33,7 +34,7 @@ function buildFrontendHostingConfig(environmentName) {
     manifestKey: releaseId ? `${artifactBasePrefix}/releases/${releaseId}/manifest.json` : "",
     staticPrefix: releaseId ? `${artifactBasePrefix}/releases/${releaseId}/browser` : "",
     serverBundleKey: releaseId ? `${artifactBasePrefix}/releases/${releaseId}/server/ssr-handler.zip` : "",
-    ssrRuntime: "nodejs22.x",
+    ssrRuntime: "nodejs24.x",
     ssrMemorySizeMb: 512,
     ssrTimeoutSeconds: 15,
     cachePriceClass: "PRICE_CLASS_100",

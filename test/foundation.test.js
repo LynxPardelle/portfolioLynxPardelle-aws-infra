@@ -159,7 +159,7 @@ test("ApiStack creates read-only public Lambda and HTTP API", () => {
 
   template.hasResourceProperties("AWS::Lambda::Function", {
     FunctionName: "portfolio-dev-public-api",
-    Runtime: "nodejs20.x",
+    Runtime: "nodejs24.x",
     MemorySize: 256,
     Timeout: 10,
   });
@@ -167,7 +167,12 @@ test("ApiStack creates read-only public Lambda and HTTP API", () => {
     Name: "portfolio-dev-public-api",
     ProtocolType: "HTTP",
   });
-  assert.equal(Object.keys(template.findResources("AWS::DynamoDB::Table")).length, 0);
+  template.resourceCountIs("AWS::DynamoDB::Table", 1);
+  template.hasResourceProperties("AWS::DynamoDB::Table", { TableName: "portfolio-dev-editorial-drafts" });
+  template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    RouteKey: "GET /api/editorial/drafts", AuthorizationType: "JWT", AuthorizationScopes: ["openid"],
+  });
+  template.hasResourceProperties("AWS::Cognito::UserPool", { MfaConfiguration: "ON", EnabledMfas: ["SOFTWARE_TOKEN_MFA"] });
   assert.equal(Object.keys(template.findResources("AWS::ApiGatewayV2::DomainName")).length, 0);
 });
 
@@ -284,7 +289,7 @@ test("FrontendStack deploys Lambda SSR and CloudFront when release id is configu
 
   template.hasResourceProperties("AWS::Lambda::Function", {
     FunctionName: "portfolio-dev-frontend-ssr",
-    Runtime: "nodejs22.x",
+    Runtime: "nodejs24.x",
     Handler: "index.handler",
     MemorySize: 512,
     Timeout: 15,
