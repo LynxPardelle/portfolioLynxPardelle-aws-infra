@@ -72,8 +72,7 @@ def generate(question, sources, lang):
     from strands import Agent
     from strands.models import BedrockModel
 
-    model = BedrockModel(model_id=os.environ["MODEL_ID"], max_tokens=350,
-                         additional_request_fields={"thinking": {"type": "disabled"}},
+    model = BedrockModel(model_id=os.environ["MODEL_ID"], max_tokens=350, temperature=0,
                          guardrail_id=os.environ["GUARDRAIL_ID"], guardrail_version=os.environ["GUARDRAIL_VERSION"],
                          boto_client_config=single_attempt)
     agent = Agent(model=model, tools=[], callback_handler=None, system_prompt=SYSTEM_PROMPT, retry_strategy=None)
@@ -111,6 +110,7 @@ def handler(event, _context):
             viewer = str(ip if ip.version == 4 else ipaddress.ip_network(f"{ip}/64", strict=False))
         except ValueError:
             return response(403, {"error": "Missing CloudFront viewer address."}, event)
+    phase = "configuration"
     try:
         raw = event.get("body") or ""
         if event.get("isBase64Encoded") or len(raw.encode()) > 4096:
@@ -130,8 +130,10 @@ def handler(event, _context):
         if mode != "public" and not (beta and mode == "beta"):
             return response(503, {"error": "Assistant paused."}, event)
         salt = parameters.get_parameter(Name=os.environ["IP_SALT_PARAMETER"], WithDecryption=True)["Parameter"]["Value"]
+        phase = "quota"
         if not reserve(viewer, salt):
             return outcome("limited", 429)
+        phase = "retrieval"
         hits = retrieve.retrieve(knowledgeBaseId=os.environ["KNOWLEDGE_BASE_ID"], retrievalQuery={"text": question},
                                  retrievalConfiguration={"vectorSearchConfiguration": {"numberOfResults": 6,
                                      "filter": {"equals": {"key": "lang", "value": lang}}}}).get("retrievalResults", [])
@@ -140,6 +142,7 @@ def handler(event, _context):
         sources = eligible_sources(hits, revisions, lang)
         if not sources:
             return outcome("insufficient")
+        phase = "generation"
         status, parsed = generate(question, sources, lang)
         if status == "blocked":
             return outcome("blocked")
@@ -151,5 +154,6 @@ def handler(event, _context):
         return response(200, {"status": "answered", "answer": answer,
                              "sources": [{"title": slug.removeprefix("editorial-"), "url": f"/blog/article/{slug}"} for slug in cited]}, event)
     except Exception as error:
-        log.error("assistant_failure %s", type(error).__name__)
+        code = getattr(error, "response", {}).get("Error", {}).get("Code", "unknown")
+        log.error("assistant_failure phase=%s type=%s code=%s", phase, type(error).__name__, code)
         return response(503, {"error": "Assistant unavailable."}, event)

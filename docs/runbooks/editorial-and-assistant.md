@@ -26,4 +26,4 @@ La opción de publicación automática aparece después de seis aprobaciones con
 
 ## Control de costos
 
-Mantener la distribución en CloudFront Free y crear en AWS Budgets una alerta de USD 5 para el consumo del asistente, incluyendo los cargos de Anthropic en AWS Marketplace. Revisar la atribución en Cost Explorer con la etiqueta `Project` y los perfiles de inferencia. La aplicación reserva capacidad con un límite de USD 8 estimados y 900 consultas mensuales. Las cifras de referencia son USD 1.35 a 3.60 incrementales al mes para editor y asistente a ese volumen, antes de impuestos.
+Mantener la distribución en CloudFront Free. CloudWatch registra una alarma a USD 5 estimados y la aplicación reserva capacidad con un límite de USD 8 estimados y 900 consultas mensuales. El modelo en uso es Amazon Nova Micro porque la cuenta no tiene acceso a Claude Haiku 5.5. Las cifras de referencia son USD 1.11 a 3.26 incrementales al mes para editor y asistente a ese volumen, antes de impuestos.
