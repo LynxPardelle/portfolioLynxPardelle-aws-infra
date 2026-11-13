@@ -43,6 +43,12 @@ class AssistantPolicyTests(unittest.TestCase):
         self.assertIsNone(parse_answer('{"answer":"Claim", "sources":[]}', sources))
         self.assertEqual(parse_answer('{"answer":"Claim", "sources":[1]}', sources)[1], ["known"])
 
+    def test_numbered_citations_from_nova_resolve_only_to_known_sources(self):
+        sources = [{"slug": "known", "text": "The runtime is Node.js 24."}]
+        self.assertEqual(parse_answer('{"answer":"Node.js 24","sources":[{"number":1}]}', sources),
+                         ("Node.js 24", ["known"]))
+        self.assertIsNone(parse_answer('{"answer":"Claim","sources":[{"number":2}]}', sources))
+
     def test_budget_reservation_includes_guardrail_and_retrieval_margin(self):
         self.assertGreaterEqual(reserve_microusd(), 2800)
 

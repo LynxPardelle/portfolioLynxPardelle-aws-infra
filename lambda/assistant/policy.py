@@ -68,6 +68,8 @@ def parse_answer(raw, sources):
     text, ids = answer.get("answer"), answer.get("sources")
     if not isinstance(text, str) or not text.strip() or not isinstance(ids, list) or not ids:
         return None
+    # Nova can return a numbered citation object even when asked for integers.
+    ids = [item.get("number") if isinstance(item, dict) else item for item in ids]
     if any(type(i) is not int or not 1 <= i <= len(sources) for i in ids):
         return None
     return text.strip(), list(dict.fromkeys(sources[i - 1]["slug"] for i in ids))

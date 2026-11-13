@@ -50,6 +50,27 @@ test("article list returns success with an empty collection instead of 404", asy
   });
 });
 
+test("article taxonomy filters match exact terms and exclude test articles", async (t) => {
+  t.after(() => __test.resetDynamoClientForTest());
+  const records = [
+    { legacyMongoId: "angular", editorial: { category: "technology", tags: ["angular"], subcategories: ["aws"] } },
+    { legacyMongoId: "angular-next", editorial: { category: "technology", tags: ["angular-next"], subcategories: ["frontend"] } },
+    { legacyMongoId: "private", editorial: { category: "technology", tags: ["angular", "test"], subcategories: ["aws"] } },
+  ];
+  __test.setDynamoClientForTest({
+    send: async (command) => ({ Items: command.input.TableName === process.env.ARTICLES_TABLE ? records.map((item) => marshall(item)) : [] }),
+  });
+  const rawPath = "/api/article/articles/1/5/_id/all/all";
+  for (const [filter, ids] of [
+    [{ tag: "angular" }, ["angular"]], [{ subcategory: "aws" }, ["angular"]],
+    [{ category: "technology" }, ["angular", "angular-next"]], [{ tag: "missing" }, []],
+  ]) {
+    const result = JSON.parse((await handler({ rawPath, queryStringParameters: filter })).body);
+    assert.deepEqual(result.articles.map((article) => article._id), ids);
+    if (ids.length) assert.ok(result.articles[0].taxonomy.some((term) => term.kind === "tag" && term.key === "angular"));
+  }
+});
+
 test("public media payloads expose CDN metadata without raw S3 location fields", async (t) => {
   t.after(() => __test.resetDynamoClientForTest());
 

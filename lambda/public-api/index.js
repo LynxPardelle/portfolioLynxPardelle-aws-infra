@@ -72,7 +72,7 @@ exports.handler = async function handler(event) {
       });
     }
 
-    const response = await route(requestPath);
+    const response = await route(requestPath, event.queryStringParameters);
     if (method === "HEAD") {
       return { ...response, body: "" };
     }
@@ -91,7 +91,7 @@ exports.handler = async function handler(event) {
   }
 };
 
-async function route(pathname) {
+async function route(pathname, query) {
   if (pathname === "/") {
     return json(200, {
       author: "Lynx Pardelle",
@@ -166,7 +166,7 @@ async function route(pathname) {
   }
 
   if (pathname === "/api/article/articles" || pathname.startsWith("/api/article/articles/")) {
-    return getArticles(pathname);
+    return getArticles(pathname, query);
   }
 
   return json(404, {
@@ -300,10 +300,10 @@ async function getArticleSubCategories() {
   });
 }
 
-async function getArticles(pathname) {
+async function getArticles(pathname, query = {}) {
   const params = parseArticleListPath(pathname);
   const allArticles = (await scanByEntity(tables.articles, "articles")).filter(isPublicArticle);
-  const filtered = await filterArticles(allArticles, params);
+  const filtered = await filterArticles(allArticles, params, query || {});
   const sorted = sortDocuments(filtered, params.sort);
   const total = sorted.length;
 
@@ -348,13 +348,19 @@ async function getArticle(id) {
   });
 }
 
-async function filterArticles(articles, params) {
+async function filterArticles(articles, params, query) {
   let filtered = articles;
 
   if (params.type && params.type !== "all") {
     filtered = filtered.filter((article) =>
       [article.articleCat, article.cat].filter(Boolean).includes(params.type)
     );
+  }
+
+  const kind = ["category", "subcategory", "tag"].find((key) => query[key]);
+  if (kind) {
+    const value = String(query[kind]).trim().toLowerCase();
+    filtered = filtered.filter((article) => articleTaxonomy(article).some((term) => term.kind === kind && term.key === value));
   }
 
   if (params.search) {
@@ -418,8 +424,25 @@ async function populateArticle(article) {
   }
 
   articleCopy.subCats = resolveReferenceList(articleCopy.subCats, subcategoriesById);
+  articleCopy.taxonomy = articleTaxonomy(articleCopy);
   articleCopy.sections = await loadArticleSections(articleCopy);
   return articleCopy;
+}
+
+function articleTaxonomy(article) {
+  const editorial = article.editorial;
+  const terms = [];
+  function add(kind, value) {
+    if (!value || value.show === false) return;
+    const key = String(value._id || value.slug || value).trim().toLowerCase();
+    if (!key || terms.some((term) => term.kind === kind && term.key === key)) return;
+    terms.push({ kind, key, label: value.title || key, labelEng: value.titleEng || value.title || key });
+  }
+  add("category", editorial?.category || article.cat || article.articleCat);
+  for (const value of (editorial ? asArray(editorial.subcategories) : asArray(article.subCats))) add("subcategory", value);
+  const tags = editorial?.tags ?? (Array.isArray(article.tags) ? article.tags : String(article.tags || "").split(/[,;]+/));
+  for (const value of tags) add("tag", value);
+  return terms;
 }
 
 async function loadArticleSections(article) {
